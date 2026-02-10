@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/muskan953/college-Hop/pkg/db"
+	"github.com/muskan953/college-Hop/pkg/migrations"
 )
 
 func main() {
@@ -15,6 +16,11 @@ func main() {
 
 	defer database.Close()
 	log.Println("Database connection established")
+	if err := migrations.Run(database); err != nil {
+		log.Fatalf("migration failed: %v", err)
+	}
+
+	log.Println("database migrations applied")
 
 	mux := http.NewServeMux()
 
