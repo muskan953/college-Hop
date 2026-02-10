@@ -3,9 +3,19 @@ package main
 import (
 	"log"
 	"net/http"
+
+	"github.com/muskan953/college-Hop/pkg/db"
 )
 
 func main() {
+	database, err := db.Connect()
+	if err != nil {
+		log.Fatal("Database connection failed: %v", err)
+	}
+
+	defer database.Close()
+	log.Println("Database connection established")
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
