@@ -1,4 +1,4 @@
-import 'package:college_hop/screen/forgot_password.dart';
+import 'package:college_hop/screen/verify_otp.dart';
 import 'package:flutter/material.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 import 'sign_up1.dart';
@@ -14,9 +14,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-
-  bool _obscurePassword = true;
 
   @override
   Widget build(BuildContext context) {
@@ -76,12 +73,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 32),
 
                 // Email
-                Text(
-                  "College Email",
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                Text("College Email",
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    )),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: emailController,
@@ -89,13 +84,31 @@ class _LoginScreenState extends State<LoginScreen> {
                     if (value == null || value.trim().isEmpty) {
                       return "Email is required";
                     }
+                    if (!value.contains("@")) {
+                      return "Enter a valid email";
+                    }
+                     final domain = value.split('@').last.toLowerCase();
+
+                     // Blacklisted domains
+                      const blockedDomains = [
+                       'gmail.com',
+                       'yahoo.com',
+                       'outlook.com',
+                       'hotmail.com',
+                       'icloud.com',
+                       'proton.me',
+                       'zoho.com',
+                       ];
+
+                       if (blockedDomains.contains(domain)) {
+                        return "Use your college email address";
+                       }
                     return null;
                   },
                   decoration: InputDecoration(
-                    hintText: "name@college.edu",
-                    hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withOpacity(0.3),
+                    hintText: "jane@university.edu",
+                     hintStyle: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
                     ),
                     filled: true,
                     fillColor:
@@ -106,77 +119,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
+
 
                 const SizedBox(height: 16),
 
-                // Password
-                Text(
-                  "Password",
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: passwordController,
-                  obscureText: _obscurePassword,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return "Password is required";
-                    }
-                    return null;
-                  },
-                  decoration: InputDecoration(
-                    hintText: "Enter your password",
-                    hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withOpacity(0.3),
-                    ),
-                    filled: true,
-                    fillColor:
-                        theme.colorScheme.surfaceVariant.withOpacity(0.8),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        size: 20,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                // Forgot password
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const ForgotPasswordScreen(),
-                      ),
-                    );
-                    },
-                    child: Text(
-                      "Forgot password?",
-                      style: TextStyle(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
 
                 const Spacer(),
 
@@ -188,6 +134,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
                         // Handle login
+                        Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (context) => const VerifyOtpScreen(),
+    ),
+  );
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -208,25 +159,37 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 8),
 
-                Center(
-                  child: TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SignUpStep1(),
-                        ),
-                      );
-                    },
-                    child: Text(
-                      "Don’t have an account? Sign Up",
-                      style: TextStyle(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
+                 Center(
+  child: TextButton(
+    onPressed: () {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const SignUpStep1(),
+        ),
+      );
+    },
+    child: RichText(
+      text: TextSpan(
+        style: theme.textTheme.bodyMedium,
+        children: [
+          TextSpan(
+            text: "Don't have an account? ",
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          TextSpan(
+            text: "Sign In",
+            style: TextStyle(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+),
 
                 const SizedBox(height: 16),
               ],

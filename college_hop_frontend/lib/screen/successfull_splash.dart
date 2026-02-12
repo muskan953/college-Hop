@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
+import 'profile_setup.dart';
 
 class VerificationSuccessScreen extends StatefulWidget {
   const VerificationSuccessScreen({super.key});
@@ -42,11 +43,15 @@ class _VerificationSuccessScreenState
     _confettiController.play();
 
     // Auto navigate after 3 seconds
-    Timer(const Duration(seconds: 3), () {
-      // TODO: Navigate to next screen
-      // Navigator.pushReplacement(...);
+   Timer(const Duration(seconds: 3), () {
+       Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ProfileSetupScreen(),
+                      ),
+                    );
     });
   }
+  
 
   @override
   void dispose() {

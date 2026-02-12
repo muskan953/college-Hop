@@ -15,14 +15,6 @@ class _SignUpStep1State extends State<SignUpStep1> {
 
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-
-  bool _obscurePassword = true;
-
-  // Password validation regex
-  final passwordRegex = RegExp(
-    r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$',
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +85,7 @@ const SizedBox(height: 24),
                   controller: nameController,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return "Full name is required";
+                      return "Name is required";
                     }
                     return null;
                   },
@@ -164,51 +156,6 @@ const SizedBox(height: 24),
 
                 const SizedBox(height: 16),
 
-                // Password
-                Text("Password",
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    )),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: passwordController,
-                  obscureText: _obscurePassword,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return "Password is required";
-                    }
-                    if (!passwordRegex.hasMatch(value)) {
-                      return "Min 8 chars, upper, lower, number & special";
-                    }
-                    return null;
-                  },
-                  decoration: InputDecoration(
-                    hintText: "Min. 8 characters",
-                     hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
-                    ),
-                    filled: true,
-                    fillColor:
-                        theme.colorScheme.surfaceVariant.withOpacity(0.8),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        size: 20,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
 
                 const Spacer(),
 
@@ -218,11 +165,13 @@ const SizedBox(height: 24),
                   height: 52,
                   child: ElevatedButton(
                     onPressed: () {
+                     if (_formKey.currentState!.validate()) {
                       Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const SignUpStep2(),
-                      ),
-                    );
+                        MaterialPageRoute(
+                          builder: (context) => const SignUpStep2(),
+                        ),
+                      );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.colorScheme.primary,
@@ -245,21 +194,37 @@ const SizedBox(height: 24),
                 const SizedBox(height: 8),
 
                 Center(
-                  child: TextButton(
-                    onPressed: () {Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const LoginScreen(),
-                      ),
-                    );},
-                    child: Text(
-                      "Already a member? Log In",
-                      style: TextStyle(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
+  child: TextButton(
+    onPressed: () {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const LoginScreen(),
+        ),
+      );
+    },
+    child: RichText(
+      text: TextSpan(
+        style: theme.textTheme.bodyMedium,
+        children: [
+          TextSpan(
+            text: "Already a member? ",
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          TextSpan(
+            text: "Log In",
+            style: TextStyle(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+),
+
 
                 const SizedBox(height: 16),
               ],

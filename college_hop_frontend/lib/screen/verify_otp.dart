@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:college_hop/screen/reset_password.dart';
 import 'package:flutter/material.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 
@@ -102,7 +101,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
               // Centered subtitle
               Center(
                 child: Text(
-                  "We’ve sent a 6-digit verification code to\nstudent@college.edu. Enter the code below to verify your email.",
+                  "We’ve sent a 6-digit verification code to\nyour email. Enter the code below to verify your email.",
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
@@ -190,11 +189,11 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
 
   String otp = controllers.map((c) => c.text).join();
 
-  Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (context) => const ResetPasswordScreen(),
-    ),
-  );
+  //Navigator.of(context).push(
+    //MaterialPageRoute(
+      //builder: (context) => const ResetPasswordScreen(),
+    //),
+  //);
 },
 
                   style: ElevatedButton.styleFrom(
@@ -214,19 +213,6 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
               ),
 
               const SizedBox(height: 8),
-
-              Center(
-                child: TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    "Wrong Email? Go Back",
-                    style: TextStyle(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
 
               const SizedBox(height: 16),
             ],
