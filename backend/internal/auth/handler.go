@@ -48,6 +48,17 @@ func (h *Handler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	allowed, err := h.repo.CanRequestOTP(r.Context(), req.Email)
+	if err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+
+	if !allowed {
+		http.Error(w, "please wait before requesting another OTP", http.StatusTooManyRequests)
+		return
+	}
+
 	otp, err := GenerateOTP()
 	if err != nil {
 		http.Error(w, "failed to generate OTP", http.StatusInternalServerError)
