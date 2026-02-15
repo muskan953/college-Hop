@@ -4,14 +4,23 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"os"
 )
 
-var jwtSecret = []byte("dev-secret-change-in-production")
+var jwtSecret []byte
 
 type Claims struct {
 	UserID string `json:"user_id"`
 	Email  string `json:"email"`
 	jwt.RegisteredClaims
+}
+
+func init() {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		panic("JWT_SECRET not set")
+	}
+	jwtSecret = []byte(secret)
 }
 
 func GenerateToken(userID string, email string) (string, error) {
