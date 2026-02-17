@@ -9,11 +9,18 @@ import (
 	"github.com/google/uuid"
 )
 
+var (
+	ErrRefreshTokenNotFound = errors.New("refresh token not found")
+)
+
 type Repository interface {
 	SaveOTP(ctx context.Context, email string, otpHash string, expiresAt time.Time) error
 	VerifyOTP(ctx context.Context, email string, otpHash string) error
 	CanRequestOTP(ctx context.Context, email string) (bool, error)
 	GetOrCreateUser(ctx context.Context, email string) (string, error)
+	SaveRefreshToken(ctx context.Context, userID string, tokenHash string, expiresAt time.Time) error
+	GetRefreshToken(ctx context.Context, tokenHash string) (string, time.Time, error)
+	DeleteRefreshToken(ctx context.Context, tokenHash string) error
 }
 
 type PostgresRepository struct {
@@ -145,4 +152,38 @@ func (r *PostgresRepository) GetOrCreateUser(ctx context.Context, email string) 
 	).Scan(&id)
 
 	return id, err
+}
+func (r *PostgresRepository) SaveRefreshToken(ctx context.Context, userID string, tokenHash string, expiresAt time.Time) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+		 VALUES ($1, $2, $3)`,
+		userID,
+		tokenHash,
+		expiresAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetRefreshToken(ctx context.Context, tokenHash string) (string, time.Time, error) {
+	var userID string
+	var expiresAt time.Time
+
+	err := r.db.QueryRowContext(ctx,
+		`SELECT user_id, expires_at FROM refresh_tokens WHERE token_hash = $1`,
+		tokenHash,
+	).Scan(&userID, &expiresAt)
+
+	if err == sql.ErrNoRows {
+		return "", time.Time{}, errors.New("refresh token not found")
+	}
+
+	return userID, expiresAt, err
+}
+
+func (r *PostgresRepository) DeleteRefreshToken(ctx context.Context, tokenHash string) error {
+	_, err := r.db.ExecContext(ctx,
+		`DELETE FROM refresh_tokens WHERE token_hash = $1`,
+		tokenHash,
+	)
+	return err
 }

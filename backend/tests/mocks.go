@@ -10,10 +10,13 @@ import (
 
 // ensure MockAuthRepository implements auth.Repository
 type MockAuthRepository struct {
-	SaveOTPFunc         func(ctx context.Context, email string, otpHash string, expiresAt time.Time) error
-	VerifyOTPFunc       func(ctx context.Context, email string, otpHash string) error
-	CanRequestOTPFunc   func(ctx context.Context, email string) (bool, error)
-	GetOrCreateUserFunc func(ctx context.Context, email string) (string, error)
+	SaveOTPFunc            func(ctx context.Context, email string, otpHash string, expiresAt time.Time) error
+	VerifyOTPFunc          func(ctx context.Context, email string, otpHash string) error
+	CanRequestOTPFunc      func(ctx context.Context, email string) (bool, error)
+	GetOrCreateUserFunc    func(ctx context.Context, email string) (string, error)
+	SaveRefreshTokenFunc   func(ctx context.Context, userID string, tokenHash string, expiresAt time.Time) error
+	GetRefreshTokenFunc    func(ctx context.Context, tokenHash string) (string, time.Time, error)
+	DeleteRefreshTokenFunc func(ctx context.Context, tokenHash string) error
 }
 
 func (m *MockAuthRepository) SaveOTP(ctx context.Context, email string, otpHash string, expiresAt time.Time) error {
@@ -42,6 +45,27 @@ func (m *MockAuthRepository) GetOrCreateUser(ctx context.Context, email string) 
 		return m.GetOrCreateUserFunc(ctx, email)
 	}
 	return "mock-user-id", nil
+}
+
+func (m *MockAuthRepository) SaveRefreshToken(ctx context.Context, userID string, tokenHash string, expiresAt time.Time) error {
+	if m.SaveRefreshTokenFunc != nil {
+		return m.SaveRefreshTokenFunc(ctx, userID, tokenHash, expiresAt)
+	}
+	return nil
+}
+
+func (m *MockAuthRepository) GetRefreshToken(ctx context.Context, tokenHash string) (string, time.Time, error) {
+	if m.GetRefreshTokenFunc != nil {
+		return m.GetRefreshTokenFunc(ctx, tokenHash)
+	}
+	return "mock-user-id", time.Now().Add(30 * 24 * time.Hour), nil
+}
+
+func (m *MockAuthRepository) DeleteRefreshToken(ctx context.Context, tokenHash string) error {
+	if m.DeleteRefreshTokenFunc != nil {
+		return m.DeleteRefreshTokenFunc(ctx, tokenHash)
+	}
+	return nil
 }
 
 // ensure MockProfileRepository implements profile.Repository

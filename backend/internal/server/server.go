@@ -21,6 +21,8 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, store s
 
 	mux.HandleFunc("/auth/signup", authHandler.Signup)
 	mux.HandleFunc("/auth/verify", authHandler.Verify)
+	mux.HandleFunc("/auth/refresh", authHandler.Refresh)
+	mux.HandleFunc("/auth/logout", authHandler.Logout)
 
 	profileHandler := profile.NewHandler(profileRepo)
 
@@ -41,7 +43,10 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, store s
 	mux.Handle("/upload", auth.AuthMiddleware(http.HandlerFunc(uploadHandler.Upload)))
 
 	// Serve uploaded files
-	mux.Handle("/uploads/", http.StripPrefix("/uploads", upload.ServeFile(uploadDir)))
+	// Profile photos are public
+	mux.Handle("/uploads/profile_photo/", http.StripPrefix("/uploads", upload.ServeFile(uploadDir)))
+	// ID cards are private (require authentication)
+	mux.Handle("/uploads/id_card/", auth.AuthMiddleware(http.StripPrefix("/uploads", upload.ServeFile(uploadDir))))
 
 	return mux
 }

@@ -43,9 +43,37 @@ func (h *Handler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// minimal validation
+	// Trim whitespace
+	req.FullName = strings.TrimSpace(req.FullName)
+	req.CollegeName = strings.TrimSpace(req.CollegeName)
+	req.Major = strings.TrimSpace(req.Major)
+	req.RollNumber = strings.TrimSpace(req.RollNumber)
+	req.Bio = strings.TrimSpace(req.Bio)
+
+	// Validation
 	if req.FullName == "" || req.CollegeName == "" || req.Major == "" || req.RollNumber == "" {
-		http.Error(w, "missing required fields", http.StatusBadRequest)
+		http.Error(w, "missing required fields (full_name, college_name, major, roll_number)", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.FullName) > 50 {
+		http.Error(w, "full_name too long (max 50 chars)", http.StatusBadRequest)
+		return
+	}
+	if len(req.CollegeName) > 100 {
+		http.Error(w, "college_name too long (max 100 chars)", http.StatusBadRequest)
+		return
+	}
+	if len(req.Major) > 50 {
+		http.Error(w, "major too long (max 50 chars)", http.StatusBadRequest)
+		return
+	}
+	if len(req.RollNumber) > 20 {
+		http.Error(w, "roll_number too long (max 20 chars)", http.StatusBadRequest)
+		return
+	}
+	if len(req.Bio) > 500 {
+		http.Error(w, "bio too long (max 500 chars)", http.StatusBadRequest)
 		return
 	}
 

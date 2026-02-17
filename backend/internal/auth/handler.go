@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 )
 
 type SignupRequest struct {
@@ -20,7 +21,17 @@ type VerifyRequest struct {
 }
 
 type VerifyResponse struct {
-	Token string `json:"token"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type RefreshResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 type Handler struct {
@@ -110,14 +121,118 @@ func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := GenerateToken(userID, req.Email)
+	accessToken, err := GenerateToken(userID, req.Email)
 	if err != nil {
-		http.Error(w, "failed to generate token", http.StatusInternalServerError)
+		http.Error(w, "failed to generate access token", http.StatusInternalServerError)
+		return
+	}
+
+	refreshToken, err := GenerateRefreshToken(userID, req.Email)
+	if err != nil {
+		http.Error(w, "failed to generate refresh token", http.StatusInternalServerError)
+		return
+	}
+
+	// Save hashed refresh token to DB
+	tokenHash := HashOTP(refreshToken)
+	expiresAt := time.Now().Add(30 * 24 * time.Hour)
+	if err := h.repo.SaveRefreshToken(r.Context(), userID, tokenHash, expiresAt); err != nil {
+		http.Error(w, "failed to save refresh token", http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(VerifyResponse{
-		Token: token,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	})
+}
+
+func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req RefreshRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// 1. Validate the refresh token (parse as JWT)
+	claims, err := ParseToken(req.RefreshToken)
+	if err != nil {
+		http.Error(w, "invalid refresh token", http.StatusUnauthorized)
+		return
+	}
+
+	// 2. Check the DB for the hashed token (to handle revocation and rotation)
+	tokenHash := HashOTP(req.RefreshToken)
+	userID, expiresAt, err := h.repo.GetRefreshToken(r.Context(), tokenHash)
+	if err != nil {
+		http.Error(w, "refresh token revoked or not found", http.StatusUnauthorized)
+		return
+	}
+
+	if time.Now().After(expiresAt) {
+		h.repo.DeleteRefreshToken(r.Context(), tokenHash)
+		http.Error(w, "refresh token expired", http.StatusUnauthorized)
+		return
+	}
+
+	// 3. Rotation: Invalidate the old refresh token
+	if err := h.repo.DeleteRefreshToken(r.Context(), tokenHash); err != nil {
+		http.Error(w, "failed to rotate token", http.StatusInternalServerError)
+		return
+	}
+
+	// 4. Generate new pair
+	accessToken, err := GenerateToken(userID, claims.Email)
+	if err != nil {
+		http.Error(w, "failed to generate access token", http.StatusInternalServerError)
+		return
+	}
+
+	newRefreshToken, err := GenerateRefreshToken(userID, claims.Email)
+	if err != nil {
+		http.Error(w, "failed to generate refresh token", http.StatusInternalServerError)
+		return
+	}
+
+	// 5. Save the NEW refresh token
+	newTokenHash := HashOTP(newRefreshToken)
+	newExpiresAt := time.Now().Add(30 * 24 * time.Hour)
+	if err := h.repo.SaveRefreshToken(r.Context(), userID, newTokenHash, newExpiresAt); err != nil {
+		http.Error(w, "failed to save new refresh token", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(RefreshResponse{
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+	})
+}
+
+func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req RefreshRequest // We reuse the RefreshRequest struct since it just needs the token
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	tokenHash := HashOTP(req.RefreshToken)
+	if err := h.repo.DeleteRefreshToken(r.Context(), tokenHash); err != nil {
+		http.Error(w, "failed to logout", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "logged out successfully"})
 }
