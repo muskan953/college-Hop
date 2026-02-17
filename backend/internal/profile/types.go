@@ -22,4 +22,5 @@ type ProfileResponse struct {
 	ProfilePhotoURL string   `json:"profile_photo_url"`
 	IDCardURL       string   `json:"college_id_card_url"`
 	Interests       []string `json:"interests"`
+	Status          string   `json:"status"`
 }

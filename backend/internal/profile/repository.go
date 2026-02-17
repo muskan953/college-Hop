@@ -101,10 +101,12 @@ func (r *PostgresRepository) GetProfile(ctx context.Context, userID string) (*Pr
 	var profile ProfileResponse
 
 	err := r.db.QueryRowContext(ctx, `
-		SELECT full_name, college_name, major, roll_number,
-		       id_expiration, bio, profile_photo_url, college_id_card_url
-		FROM profiles
-		WHERE user_id = $1
+		SELECT p.full_name, p.college_name, p.major, p.roll_number,
+		       p.id_expiration, p.bio, p.profile_photo_url, p.college_id_card_url,
+		       u.status
+		FROM profiles p
+		JOIN users u ON u.id = p.user_id
+		WHERE p.user_id = $1
 	`, userID).Scan(
 		&profile.FullName,
 		&profile.CollegeName,
@@ -114,6 +116,7 @@ func (r *PostgresRepository) GetProfile(ctx context.Context, userID string) (*Pr
 		&profile.Bio,
 		&profile.ProfilePhotoURL,
 		&profile.IDCardURL,
+		&profile.Status,
 	)
 
 	if err != nil {
