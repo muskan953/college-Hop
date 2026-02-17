@@ -24,7 +24,7 @@ func TestIDCardRequiresAuth(t *testing.T) {
 	mockProfileRepo := &MockProfileRepository{}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, mockStore, "./uploads")
 
 	// Request an ID card without any Authorization header
 	req, _ := http.NewRequest("GET", "/uploads/id_card/somefile.pdf", nil)
@@ -44,7 +44,7 @@ func TestProfilePhotoIsPublic(t *testing.T) {
 	mockProfileRepo := &MockProfileRepository{}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, mockStore, "./uploads")
 
 	// Request a profile photo without any Authorization header
 	// We expect 404 (file doesn't exist) but NOT 401 (unauthorized)
@@ -79,7 +79,7 @@ func TestOTPBruteForceProtection(t *testing.T) {
 	mockProfileRepo := &MockProfileRepository{}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, mockStore, "./uploads")
 
 	// Simulate 5 failed attempts
 	for i := 0; i < 5; i++ {
@@ -112,7 +112,7 @@ func TestIDCardAccessWithToken(t *testing.T) {
 	mockProfileRepo := &MockProfileRepository{}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, mockStore, "./uploads")
 
 	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
 

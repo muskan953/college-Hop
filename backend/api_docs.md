@@ -298,3 +298,252 @@ Sets a user's status to `blocked`.
 | `403` | Missing or wrong `X-Admin-Secret` |
 | `404` | User not found |
 | `503` | `ADMIN_SECRET` not configured |
+
+---
+
+## Events
+
+### `GET /events`
+
+Lists all approved events.
+
+**Auth**: None
+
+**Response** `200 OK`:
+```json
+[
+  {
+    "id": "uuid",
+    "name": "TechFest 2026",
+    "date": "2026-03-15T00:00:00Z",
+    "location": "NIT Warangal",
+    "organizer": "CSE Dept",
+    "url": "https://techfest.nitw.ac.in",
+    "status": "approved",
+    "created_at": "2026-02-18T00:00:00Z"
+  }
+]
+```
+
+---
+
+### `POST /events`
+
+Submits a new event for admin approval.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Request Body**:
+```json
+{
+  "name": "TechFest 2026",
+  "date": "2026-03-15",
+  "location": "NIT Warangal",
+  "organizer": "CSE Dept",
+  "url": "https://techfest.nitw.ac.in"
+}
+```
+
+**Responses**:
+
+| Status | Description |
+|--------|-------------|
+| `201` | Event created with `status: "pending"` |
+| `400` | Missing required fields (name, date, location, organizer) |
+| `401` | Missing or invalid token |
+
+---
+
+### `PUT /me/event`
+
+Sets the user's currently selected event.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Request Body**:
+```json
+{
+  "event_id": "uuid",
+  "status": "interested"
+}
+```
+
+**Responses**:
+
+| Status | Description |
+|--------|-------------|
+| `200` | `{"message": "event set"}` |
+| `400` | Missing `event_id` or event not approved |
+| `401` | Missing or invalid token |
+| `404` | Event not found |
+
+---
+
+### `GET /me/event`
+
+Returns the user's currently selected event.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Response** `200 OK`:
+```json
+{
+  "event": {
+    "id": "uuid",
+    "name": "TechFest 2026",
+    "date": "2026-03-15T00:00:00Z",
+    "location": "NIT Warangal",
+    "organizer": "CSE Dept",
+    "status": "approved"
+  },
+  "status": "interested"
+}
+```
+
+---
+
+### `GET /admin/events/pending`
+
+Lists all events pending approval.
+
+**Auth**: `X-Admin-Secret: <secret>`
+
+**Response** `200 OK`: Array of events with `status: "pending"`.
+
+---
+
+### `POST /admin/events/{id}/approve`
+
+Approves a pending event.
+
+**Auth**: `X-Admin-Secret: <secret>`
+
+**Response** `200 OK`:
+```json
+{"message": "event approved"}
+```
+
+---
+
+### `POST /admin/events/{id}/reject`
+
+Rejects a pending event.
+
+**Auth**: `X-Admin-Secret: <secret>`
+
+**Response** `200 OK`:
+```json
+{"message": "event rejected"}
+```
+
+---
+
+## Travel Groups
+
+### `POST /groups`
+
+Creates a new travel group for an event. The creator is automatically added as the first member.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Request Body**:
+```json
+{
+  "event_id": "uuid",
+  "name": "Team Alpha",
+  "description": "Looking for travel buddies from Hyderabad",
+  "max_members": 4
+}
+```
+
+**Notes**:
+- `max_members` defaults to 4, maximum 6
+- Creator is auto-joined as the first member
+
+**Responses**:
+
+| Status | Description |
+|--------|-------------|
+| `201` | Group created |
+| `400` | Missing `name` or `event_id` |
+| `401` | Missing or invalid token |
+
+---
+
+### `POST /groups/{id}/join`
+
+Joins an existing travel group.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Responses**:
+
+| Status | Description |
+|--------|-------------|
+| `200` | `{"message": "joined group"}` |
+| `400` | Group is full |
+| `401` | Missing or invalid token |
+| `404` | Group not found |
+
+---
+
+### `GET /groups/suggested?event_id=<uuid>`
+
+Returns groups for an event, scored and sorted by interest similarity with the user.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Algorithm**: Log-Enhanced Jaccard Similarity with strict filtering.
+
+**Response** `200 OK`:
+```json
+[
+  {
+    "id": "uuid",
+    "event_id": "uuid",
+    "name": "Team Alpha",
+    "description": "Looking for travel buddies",
+    "created_by": "uuid",
+    "max_members": 4,
+    "member_count": 2,
+    "match_score": 0.556,
+    "interests": ["AI", "ML", "Robotics"]
+  }
+]
+```
+
+**Notes**:
+- Full groups are excluded
+- Groups where any member has zero interest overlap are filtered out
+- Results sorted by `match_score` descending
+
+---
+
+## Peer Matching
+
+### `GET /users/matches?event_id=<uuid>`
+
+Finds the best peer matches for the user at a specific event.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Algorithm**: `Score = (|Intersection| / |Union|) × log₁₀(1 + |Intersection|)`
+
+**Response** `200 OK`:
+```json
+[
+  {
+    "user_id": "uuid",
+    "full_name": "Alice Kumar",
+    "college_name": "NIT Warangal",
+    "profile_photo_url": "http://localhost:8080/uploads/profile_photo/abc.jpg",
+    "common_interests": ["AI", "ML"],
+    "match_score": 0.556
+  }
+]
+```
+
+**Notes**:
+- Returns top 10 matches
+- Users with zero interest overlap are filtered out
+- Results sorted by `match_score` descending

@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS group_members;
+DROP TABLE IF EXISTS travel_groups;
+DROP TABLE IF EXISTS user_events;
+DROP TABLE IF EXISTS events;

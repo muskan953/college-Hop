@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/muskan953/college-Hop/internal/admin"
+	"github.com/muskan953/college-Hop/internal/events"
+	"github.com/muskan953/college-Hop/internal/groups"
 	"github.com/muskan953/college-Hop/internal/profile"
 )
 
@@ -135,4 +137,57 @@ func (m *MockAdminRepository) UpdateUserStatus(ctx context.Context, userID strin
 		return m.UpdateUserStatusFunc(ctx, userID, status)
 	}
 	return nil
+}
+
+// MockEventsRepository implements events.Repository
+type MockEventsRepository struct{}
+
+func (m *MockEventsRepository) CreateEvent(ctx context.Context, event *events.Event) error {
+	return nil
+}
+func (m *MockEventsRepository) ListApprovedEvents(ctx context.Context) ([]events.Event, error) {
+	return []events.Event{}, nil
+}
+func (m *MockEventsRepository) ListPendingEvents(ctx context.Context) ([]events.Event, error) {
+	return []events.Event{}, nil
+}
+func (m *MockEventsRepository) UpdateEventStatus(ctx context.Context, eventID string, status string) error {
+	return nil
+}
+func (m *MockEventsRepository) GetEvent(ctx context.Context, eventID string) (*events.Event, error) {
+	return &events.Event{}, nil
+}
+func (m *MockEventsRepository) SetUserEvent(ctx context.Context, userID, eventID, status string) error {
+	return nil
+}
+func (m *MockEventsRepository) GetUserEvent(ctx context.Context, userID string) (*events.UserEvent, error) {
+	return &events.UserEvent{}, nil
+}
+
+// MockGroupsRepository implements groups.Repository
+type MockGroupsRepository struct{}
+
+func (m *MockGroupsRepository) CreateGroup(ctx context.Context, group *groups.Group) error {
+	return nil
+}
+func (m *MockGroupsRepository) GetGroup(ctx context.Context, groupID string) (*groups.Group, error) {
+	return &groups.Group{}, nil
+}
+func (m *MockGroupsRepository) JoinGroup(ctx context.Context, groupID, userID string) error {
+	return nil
+}
+func (m *MockGroupsRepository) GetMemberCount(ctx context.Context, groupID string) (int, error) {
+	return 0, nil
+}
+func (m *MockGroupsRepository) GetGroupsForEvent(ctx context.Context, eventID string) ([]groups.Group, error) {
+	return []groups.Group{}, nil
+}
+func (m *MockGroupsRepository) GetGroupMemberInterests(ctx context.Context, groupID string) ([][]string, error) {
+	return [][]string{}, nil
+}
+func (m *MockGroupsRepository) GetUsersForEvent(ctx context.Context, eventID, excludeUserID string) ([]groups.UserWithInterests, error) {
+	return []groups.UserWithInterests{}, nil
+}
+func (m *MockGroupsRepository) GetUserInterests(ctx context.Context, userID string) ([]string, error) {
+	return []string{}, nil
 }

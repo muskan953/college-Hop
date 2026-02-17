@@ -25,7 +25,7 @@ func TestAuthSignup(t *testing.T) {
 	mockProfileRepo := &MockProfileRepository{}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, mockStore, "./uploads")
 
 	payload := map[string]string{"email": "student@nitw.ac.in"}
 	body, _ := json.Marshal(payload)
@@ -51,7 +51,7 @@ func TestAuthVerify(t *testing.T) {
 	mockProfileRepo := &MockProfileRepository{}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, mockStore, "./uploads")
 
 	payload := map[string]string{"email": "student@nitw.ac.in", "otp": "123456"}
 	body, _ := json.Marshal(payload)
@@ -109,7 +109,7 @@ func TestAuthRefresh(t *testing.T) {
 	mockProfileRepo := &MockProfileRepository{}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, mockStore, "./uploads")
 
 	// 2. Refresh request
 	payload := auth.RefreshRequest{RefreshToken: refreshToken}
@@ -147,7 +147,7 @@ func TestAuthLogout(t *testing.T) {
 	mockProfileRepo := &MockProfileRepository{}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, mockStore, "./uploads")
 
 	payload := auth.RefreshRequest{RefreshToken: "some-token"}
 	body, _ := json.Marshal(payload)

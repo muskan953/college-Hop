@@ -8,6 +8,9 @@ We have implemented a consolidated integration test suite located in the `tests/
 - **Authentication**: Signup, Email Validation, OTP Verification.
 - **Profile**: Create, Get, and Update profiles.
 - **Upload**: File uploads for profile photos.
+- **Events**: List events, create events (auth + validation), set user event.
+- **Groups**: Create groups (auth + validation), join groups (capacity check), suggested groups.
+- **Matching**: Peer matching (scored, sorted, filtered results), Jaccard similarity algorithm.
 - **Database Repository**: Verifies real SQL queries against a running Postgres database.
 
 ### Prerequisites
@@ -94,4 +97,74 @@ Test the upload endpoint (e.g., uploading an image).
 curl -i -X POST http://localhost:8080/upload \
   -H "Authorization: Bearer <TOKEN>" \
   -F "file=@test.jpg"
+```
+
+### Events
+
+#### List Approved Events (public)
+```bash
+curl -i http://localhost:8080/events
+```
+
+#### Submit a New Event (requires auth)
+```bash
+curl -i -X POST http://localhost:8080/events \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "TechFest 2026",
+    "date": "2026-03-15",
+    "location": "NIT Warangal",
+    "organizer": "CSE Dept",
+    "url": "https://techfest.nitw.ac.in"
+  }'
+```
+
+#### Approve an Event (admin)
+```bash
+curl -i -X POST http://localhost:8080/admin/events/<EVENT_ID>/approve \
+  -H "X-Admin-Secret: <ADMIN_SECRET>"
+```
+
+#### Select an Event
+```bash
+curl -i -X PUT http://localhost:8080/me/event \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"event_id": "<EVENT_ID>", "status": "interested"}'
+```
+
+### Travel Groups
+
+#### Create a Group
+```bash
+curl -i -X POST http://localhost:8080/groups \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_id": "<EVENT_ID>",
+    "name": "Team Alpha",
+    "description": "Looking for travel buddies",
+    "max_members": 4
+  }'
+```
+
+#### Join a Group
+```bash
+curl -i -X POST http://localhost:8080/groups/<GROUP_ID>/join \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+#### Get Suggested Groups
+```bash
+curl -i http://localhost:8080/groups/suggested?event_id=<EVENT_ID> \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+### Peer Matching
+
+#### Find Best Matches
+```bash
+curl -i http://localhost:8080/users/matches?event_id=<EVENT_ID> \
+  -H "Authorization: Bearer <TOKEN>"
 ```

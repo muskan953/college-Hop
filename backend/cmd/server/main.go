@@ -11,6 +11,8 @@ import (
 
 	"github.com/muskan953/college-Hop/internal/admin"
 	"github.com/muskan953/college-Hop/internal/auth"
+	"github.com/muskan953/college-Hop/internal/events"
+	"github.com/muskan953/college-Hop/internal/groups"
 	"github.com/muskan953/college-Hop/internal/middleware"
 	"github.com/muskan953/college-Hop/internal/profile"
 	"github.com/muskan953/college-Hop/internal/server"
@@ -51,8 +53,10 @@ func main() {
 	authRepo := auth.NewRepository(database)
 	profileRepo := profile.NewRepository(database)
 	adminRepo := admin.NewRepository(database)
+	eventsRepo := events.NewRepository(database)
+	groupsRepo := groups.NewRepository(database)
 
-	mux := server.NewRouter(authRepo, profileRepo, adminRepo, store, uploadDir)
+	mux := server.NewRouter(authRepo, profileRepo, adminRepo, eventsRepo, groupsRepo, store, uploadDir)
 
 	// Wrap with rate limiter: 20 requests/sec, burst of 40
 	limiter := middleware.NewRateLimiter(20, 40)

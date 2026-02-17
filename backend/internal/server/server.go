@@ -2,15 +2,18 @@ package server
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/muskan953/college-Hop/internal/admin"
 	"github.com/muskan953/college-Hop/internal/auth"
+	"github.com/muskan953/college-Hop/internal/events"
+	"github.com/muskan953/college-Hop/internal/groups"
 	"github.com/muskan953/college-Hop/internal/profile"
 	"github.com/muskan953/college-Hop/internal/upload"
 	"github.com/muskan953/college-Hop/pkg/storage"
 )
 
-func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRepo admin.Repository, store storage.FileStorage, uploadDir string) *http.ServeMux {
+func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRepo admin.Repository, eventsRepo events.Repository, groupsRepo groups.Repository, store storage.FileStorage, uploadDir string) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -73,6 +76,68 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 		}
 		http.Error(w, "not found", http.StatusNotFound)
 	})))
+
+	// --- Events routes ---
+	eventsHandler := events.NewHandler(eventsRepo)
+
+	// Public: list approved events
+	mux.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			eventsHandler.ListEvents(w, r)
+			return
+		}
+		// Protected: create event (any auth user)
+		auth.AuthMiddleware(http.HandlerFunc(eventsHandler.CreateEvent)).ServeHTTP(w, r)
+	})
+
+	// Protected: set/get user's selected event
+	mux.Handle("/me/event", auth.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			eventsHandler.SetUserEvent(w, r)
+			return
+		}
+		if r.Method == http.MethodGet {
+			eventsHandler.GetUserEvent(w, r)
+			return
+		}
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	})))
+
+	// Admin: pending events + approve/reject
+	mux.Handle("/admin/events/pending", admin.AdminAuth(http.HandlerFunc(eventsHandler.ListPendingEvents)))
+	mux.Handle("/admin/events/", admin.AdminAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if strings.HasSuffix(path, "/approve") {
+			eventsHandler.ApproveEvent(w, r)
+			return
+		}
+		if strings.HasSuffix(path, "/reject") {
+			eventsHandler.RejectEvent(w, r)
+			return
+		}
+		http.Error(w, "not found", http.StatusNotFound)
+	})))
+
+	// --- Groups routes ---
+	groupsHandler := groups.NewHandler(groupsRepo)
+
+	// Protected: suggested groups
+	mux.Handle("/groups/suggested", auth.AuthMiddleware(http.HandlerFunc(groupsHandler.SuggestedGroups)))
+
+	// Protected: create group
+	mux.Handle("/groups", auth.AuthMiddleware(http.HandlerFunc(groupsHandler.CreateGroup)))
+
+	// Protected: join group (/groups/{id}/join)
+	mux.Handle("/groups/", auth.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/join") {
+			groupsHandler.JoinGroup(w, r)
+			return
+		}
+		http.Error(w, "not found", http.StatusNotFound)
+	})))
+
+	// Protected: peer matching
+	mux.Handle("/users/matches", auth.AuthMiddleware(http.HandlerFunc(groupsHandler.FindMatches)))
 
 	return mux
 }
