@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:college_hop/providers/auth_provider.dart';
+import 'package:college_hop/screen/main_screen.dart';
 import 'welcome_screen.dart';
-import  'package:college_hop/theme/app_scaffold.dart';
+import 'package:college_hop/theme/app_scaffold.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -40,17 +43,31 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    // Navigate after 5 seconds
-    Future.delayed(const Duration(seconds: 5), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const WelcomeScreen(),
-          ),
-        );
-      }
-    });
+    // Wait for tokens to load, then navigate
+    _navigateAfterInit();
+  }
+
+  Future<void> _navigateAfterInit() async {
+    // Run splash animation for at least 2 seconds
+    await Future.delayed(const Duration(seconds: 2));
+
+    // Wait for AuthProvider to finish loading stored tokens
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    await auth.initialized;
+
+    if (!mounted) return;
+
+    if (auth.isAuthenticated) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MainScreen()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+      );
+    }
   }
 
   @override

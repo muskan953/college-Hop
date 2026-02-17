@@ -1,15 +1,20 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:college_hop/providers/auth_provider.dart';
+import 'package:college_hop/screen/main_screen.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 
 class VerifyOtpScreen extends StatefulWidget {
-  const VerifyOtpScreen({super.key});
+  final String email;
+  const VerifyOtpScreen({super.key, required this.email});
 
   @override
   State<VerifyOtpScreen> createState() => _VerifyOtpScreenState();
 }
 
 class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
+  bool isLoading = false;
   final List<TextEditingController> controllers =
       List.generate(6, (_) => TextEditingController());
 
@@ -174,41 +179,53 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                 onPressed: () {
-  bool isOtpComplete =
-      controllers.every((controller) => controller.text.isNotEmpty);
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          bool isOtpComplete = controllers.every((controller) => controller.text.isNotEmpty);
 
-  if (!isOtpComplete) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Please enter the complete 6-digit OTP"),
-      ),
-    );
-    return;
-  }
+                          if (!isOtpComplete) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Please enter the complete 6-digit OTP")),
+                            );
+                            return;
+                          }
 
-  String otp = controllers.map((c) => c.text).join();
+                          String otp = controllers.map((c) => c.text).join();
+                          setState(() => isLoading = true);
 
-  //Navigator.of(context).push(
-    //MaterialPageRoute(
-      //builder: (context) => const ResetPasswordScreen(),
-    //),
-  //);
-},
+                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                          final success = await authProvider.verify(widget.email, otp);
 
+                          setState(() => isLoading = false);
+
+                          if (success) {
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (context) => const MainScreen()),
+                              (route) => false,
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Invalid or expired OTP")),
+                            );
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.colorScheme.primary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    "Verify",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text(
+                          "Verify",
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                        ),
                 ),
               ),
 

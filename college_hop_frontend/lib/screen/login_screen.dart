@@ -1,6 +1,7 @@
 import 'package:college_hop/screen/verify_otp.dart';
 import 'package:flutter/material.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
+import 'package:college_hop/services/api_service.dart';
 import 'sign_up1.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController emailController = TextEditingController();
+  bool isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -131,29 +133,56 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        // Handle login
-                        Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (context) => const VerifyOtpScreen(),
-    ),
-  );
-                      }
-                    },
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            if (_formKey.currentState!.validate()) {
+                              setState(() => isLoading = true);
+                              try {
+                                final res = await ApiService.login(emailController.text);
+                                setState(() => isLoading = false);
+
+                                if (res.statusCode == 200) {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => VerifyOtpScreen(email: emailController.text),
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(res.body)),
+                                  );
+                                }
+                              } catch (e) {
+                                setState(() => isLoading = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("Connection failed. Is the backend running?")),
+                                );
+                              }
+                            }
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.colorScheme.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      "Log In",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            "Log In",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
                 ),
 
