@@ -9,15 +9,22 @@ import (
 	"github.com/google/uuid"
 )
 
-type Repository struct {
+type Repository interface {
+	SaveOTP(ctx context.Context, email string, otpHash string, expiresAt time.Time) error
+	VerifyOTP(ctx context.Context, email string, otpHash string) error
+	CanRequestOTP(ctx context.Context, email string) (bool, error)
+	GetOrCreateUser(ctx context.Context, email string) (string, error)
+}
+
+type PostgresRepository struct {
 	db *sql.DB
 }
 
-func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+func NewRepository(db *sql.DB) Repository {
+	return &PostgresRepository{db: db}
 }
 
-func (r *Repository) SaveOTP(ctx context.Context, email string, otpHash string, expiresAt time.Time) error {
+func (r *PostgresRepository) SaveOTP(ctx context.Context, email string, otpHash string, expiresAt time.Time) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -49,7 +56,7 @@ func (r *Repository) SaveOTP(ctx context.Context, email string, otpHash string, 
 	return tx.Commit()
 }
 
-func (r *Repository) VerifyOTP(ctx context.Context, email string, otpHash string) error {
+func (r *PostgresRepository) VerifyOTP(ctx context.Context, email string, otpHash string) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -107,7 +114,7 @@ func (r *Repository) VerifyOTP(ctx context.Context, email string, otpHash string
 	return tx.Commit() // Returns nil on success
 }
 
-func (r *Repository) CanRequestOTP(ctx context.Context, email string) (bool, error) {
+func (r *PostgresRepository) CanRequestOTP(ctx context.Context, email string) (bool, error) {
 	var exists bool
 
 	err := r.db.QueryRowContext(ctx, `
@@ -125,7 +132,7 @@ func (r *Repository) CanRequestOTP(ctx context.Context, email string) (bool, err
 	return !exists, nil
 }
 
-func (r *Repository) GetOrCreateUser(ctx context.Context, email string) (string, error) {
+func (r *PostgresRepository) GetOrCreateUser(ctx context.Context, email string) (string, error) {
 	var id string
 
 	err := r.db.QueryRowContext(ctx,

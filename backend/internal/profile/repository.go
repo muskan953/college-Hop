@@ -6,15 +6,20 @@ import (
 	"time"
 )
 
-type Repository struct {
+type Repository interface {
+	UpsertProfile(ctx context.Context, userID string, req UpdateProfileRequest) error
+	GetProfile(ctx context.Context, userID string) (*ProfileResponse, error)
+}
+
+type PostgresRepository struct {
 	db *sql.DB
 }
 
-func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+func NewRepository(db *sql.DB) Repository {
+	return &PostgresRepository{db: db}
 }
 
-func (r *Repository) UpsertProfile(ctx context.Context, userID string, req UpdateProfileRequest) error {
+func (r *PostgresRepository) UpsertProfile(ctx context.Context, userID string, req UpdateProfileRequest) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -91,7 +96,7 @@ func (r *Repository) UpsertProfile(ctx context.Context, userID string, req Updat
 	return tx.Commit()
 }
 
-func (r *Repository) GetProfile(ctx context.Context, userID string) (*ProfileResponse, error) {
+func (r *PostgresRepository) GetProfile(ctx context.Context, userID string) (*ProfileResponse, error) {
 
 	var profile ProfileResponse
 
