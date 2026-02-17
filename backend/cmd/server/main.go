@@ -57,6 +57,7 @@ func main() {
 	// Wrap with rate limiter: 20 requests/sec, burst of 40
 	limiter := middleware.NewRateLimiter(20, 40)
 	handler := limiter.Limit(mux)
+	handler = middleware.Cors(handler)
 
 	srv := &http.Server{
 		Addr:         ":8080",

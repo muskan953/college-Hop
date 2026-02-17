@@ -18,6 +18,7 @@ type Repository interface {
 	VerifyOTP(ctx context.Context, email string, otpHash string) error
 	CanRequestOTP(ctx context.Context, email string) (bool, error)
 	GetOrCreateUser(ctx context.Context, email string) (string, error)
+	UserExists(ctx context.Context, email string) (bool, error)
 	SaveRefreshToken(ctx context.Context, userID string, tokenHash string, expiresAt time.Time) error
 	GetRefreshToken(ctx context.Context, tokenHash string) (string, time.Time, error)
 	DeleteRefreshToken(ctx context.Context, tokenHash string) error
@@ -186,4 +187,13 @@ func (r *PostgresRepository) DeleteRefreshToken(ctx context.Context, tokenHash s
 		tokenHash,
 	)
 	return err
+}
+
+func (r *PostgresRepository) UserExists(ctx context.Context, email string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx,
+		`SELECT EXISTS (SELECT 1 FROM users WHERE email = $1)`,
+		email,
+	).Scan(&exists)
+	return exists, err
 }

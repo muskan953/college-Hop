@@ -21,6 +21,7 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 	authHandler := auth.NewHandler(authRepo)
 
 	mux.HandleFunc("/auth/signup", authHandler.Signup)
+	mux.HandleFunc("/auth/login", authHandler.Login)
 	mux.HandleFunc("/auth/verify", authHandler.Verify)
 	mux.HandleFunc("/auth/refresh", authHandler.Refresh)
 	mux.HandleFunc("/auth/logout", authHandler.Logout)
