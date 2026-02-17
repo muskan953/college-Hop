@@ -18,6 +18,7 @@ type MockAuthRepository struct {
 	SaveRefreshTokenFunc   func(ctx context.Context, userID string, tokenHash string, expiresAt time.Time) error
 	GetRefreshTokenFunc    func(ctx context.Context, tokenHash string) (string, time.Time, error)
 	DeleteRefreshTokenFunc func(ctx context.Context, tokenHash string) error
+	UserExistsFunc         func(ctx context.Context, email string) (bool, error)
 }
 
 func (m *MockAuthRepository) SaveOTP(ctx context.Context, email string, otpHash string, expiresAt time.Time) error {
@@ -67,6 +68,13 @@ func (m *MockAuthRepository) DeleteRefreshToken(ctx context.Context, tokenHash s
 		return m.DeleteRefreshTokenFunc(ctx, tokenHash)
 	}
 	return nil
+}
+
+func (m *MockAuthRepository) UserExists(ctx context.Context, email string) (bool, error) {
+	if m.UserExistsFunc != nil {
+		return m.UserExistsFunc(ctx, email)
+	}
+	return false, nil
 }
 
 // ensure MockProfileRepository implements profile.Repository
