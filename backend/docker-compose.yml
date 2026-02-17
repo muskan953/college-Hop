@@ -16,6 +16,7 @@ services:
       DB_NAME: college_hop
       UPLOAD_DIR: /app/uploads
       UPLOAD_BASE_URL: http://localhost:8080/uploads
+      ADMIN_SECRET: change-me-in-production
     volumes:
       - ./uploads:/app/uploads
 

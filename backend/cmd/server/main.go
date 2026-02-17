@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/muskan953/college-Hop/internal/admin"
 	"github.com/muskan953/college-Hop/internal/auth"
 	"github.com/muskan953/college-Hop/internal/middleware"
 	"github.com/muskan953/college-Hop/internal/profile"
@@ -49,8 +50,9 @@ func main() {
 
 	authRepo := auth.NewRepository(database)
 	profileRepo := profile.NewRepository(database)
+	adminRepo := admin.NewRepository(database)
 
-	mux := server.NewRouter(authRepo, profileRepo, store, uploadDir)
+	mux := server.NewRouter(authRepo, profileRepo, adminRepo, store, uploadDir)
 
 	// Wrap with rate limiter: 20 requests/sec, burst of 40
 	limiter := middleware.NewRateLimiter(20, 40)

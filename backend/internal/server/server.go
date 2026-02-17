@@ -3,13 +3,14 @@ package server
 import (
 	"net/http"
 
+	"github.com/muskan953/college-Hop/internal/admin"
 	"github.com/muskan953/college-Hop/internal/auth"
 	"github.com/muskan953/college-Hop/internal/profile"
 	"github.com/muskan953/college-Hop/internal/upload"
 	"github.com/muskan953/college-Hop/pkg/storage"
 )
 
-func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, store storage.FileStorage, uploadDir string) *http.ServeMux {
+func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRepo admin.Repository, store storage.FileStorage, uploadDir string) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +48,30 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, store s
 	mux.Handle("/uploads/profile_photo/", http.StripPrefix("/uploads", upload.ServeFile(uploadDir)))
 	// ID cards are private (require authentication)
 	mux.Handle("/uploads/id_card/", auth.AuthMiddleware(http.StripPrefix("/uploads", upload.ServeFile(uploadDir))))
+
+	// Admin routes (protected by admin secret)
+	adminHandler := admin.NewHandler(adminRepo)
+	mux.Handle("/admin/users/pending", admin.AdminAuth(http.HandlerFunc(adminHandler.ListPendingUsers)))
+	mux.Handle("/admin/users/", admin.AdminAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Route: /admin/users/{id}/verify or /admin/users/{id}/block
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		path := r.URL.Path
+		if len(path) > 0 && path[len(path)-1] == '/' {
+			path = path[:len(path)-1]
+		}
+		if len(path) > 7 && path[len(path)-7:] == "/verify" {
+			adminHandler.VerifyUser(w, r)
+			return
+		}
+		if len(path) > 6 && path[len(path)-6:] == "/block" {
+			adminHandler.BlockUser(w, r)
+			return
+		}
+		http.Error(w, "not found", http.StatusNotFound)
+	})))
 
 	return mux
 }

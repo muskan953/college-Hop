@@ -30,7 +30,7 @@ func TestProfileGetMe(t *testing.T) {
 	}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, mockStore, "./uploads")
 
 	// Generate token (this uses the JWT_SECRET from env)
 	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
@@ -67,7 +67,7 @@ func TestProfileUpdateMe(t *testing.T) {
 	}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, mockStore, "./uploads")
 
 	// Generate token
 	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
@@ -97,7 +97,7 @@ func TestProfileUpdateValidation(t *testing.T) {
 	mockProfileRepo := &MockProfileRepository{}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, mockStore, "./uploads")
 	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
 
 	tests := []struct {

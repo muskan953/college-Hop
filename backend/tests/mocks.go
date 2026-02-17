@@ -5,6 +5,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/muskan953/college-Hop/internal/admin"
 	"github.com/muskan953/college-Hop/internal/profile"
 )
 
@@ -104,6 +105,26 @@ func (m *MockFileStorage) Upload(filename string, file io.Reader) (string, error
 func (m *MockFileStorage) Delete(filename string) error {
 	if m.DeleteFunc != nil {
 		return m.DeleteFunc(filename)
+	}
+	return nil
+}
+
+// MockAdminRepository implements admin.Repository
+type MockAdminRepository struct {
+	ListUsersByStatusFunc func(ctx context.Context, status string) ([]admin.UserRow, error)
+	UpdateUserStatusFunc  func(ctx context.Context, userID string, status string) error
+}
+
+func (m *MockAdminRepository) ListUsersByStatus(ctx context.Context, status string) ([]admin.UserRow, error) {
+	if m.ListUsersByStatusFunc != nil {
+		return m.ListUsersByStatusFunc(ctx, status)
+	}
+	return []admin.UserRow{}, nil
+}
+
+func (m *MockAdminRepository) UpdateUserStatus(ctx context.Context, userID string, status string) error {
+	if m.UpdateUserStatusFunc != nil {
+		return m.UpdateUserStatusFunc(ctx, userID, status)
 	}
 	return nil
 }
