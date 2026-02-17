@@ -1,5 +1,7 @@
 import 'package:college_hop/screen/sign_up_3.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:college_hop/providers/signup_provider.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 
 class SignUpStep2 extends StatefulWidget {
@@ -28,7 +30,7 @@ class _SignUpStep2State extends State<SignUpStep2> {
     if (picked != null) {
       setState(() {
         expiryController.text =
-            "${picked.day}/${picked.month}/${picked.year}";
+            "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
       });
     }
   }
@@ -224,11 +226,18 @@ class _SignUpStep2State extends State<SignUpStep2> {
                   child: ElevatedButton(
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
+                        final signUp = Provider.of<SignUpProvider>(context, listen: false);
+                        signUp.updateStep2(
+                          collegeName: collegeController.text.trim(),
+                          major: majorController.text.trim(),
+                          rollNumber: rollController.text.trim(),
+                          idExpiration: expiryController.text.trim(),
+                        );
                         Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const SignUpStep3(),
-                      ),
-                    );
+                          MaterialPageRoute(
+                            builder: (context) => const SignUpStep3(),
+                          ),
+                        );
                       }
                     },
                     style: ElevatedButton.styleFrom(

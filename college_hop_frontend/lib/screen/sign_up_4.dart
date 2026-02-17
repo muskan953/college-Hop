@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'package:college_hop/screen/successfull_splash.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:college_hop/providers/auth_provider.dart';
+import 'package:college_hop/providers/signup_provider.dart';
+import 'package:college_hop/services/api_service.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 
 class SignUpStep4 extends StatefulWidget {
@@ -19,6 +23,7 @@ class _SignUpStep4State extends State<SignUpStep4> {
 
   int secondsRemaining = 40;
   Timer? timer;
+  bool isLoading = false;
 
   @override
   void initState() {
@@ -101,12 +106,17 @@ class _SignUpStep4State extends State<SignUpStep4> {
 
               // Centered subtitle
               Center(
-                child: Text(
-                  "We’ve sent a 6-digit verification code to\nstudent@college.edu. Enter the code below to verify your email.",
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                child: Builder(
+                  builder: (context) {
+                    final email = Provider.of<SignUpProvider>(context, listen: false).email;
+                    return Text(
+                      "We've sent a 6-digit verification code to\n$email. Enter the code below to verify your email.",
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    );
+                  },
                 ),
               ),
 
@@ -175,27 +185,47 @@ class _SignUpStep4State extends State<SignUpStep4> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                 onPressed: () {
-  bool isOtpComplete =
-      controllers.every((controller) => controller.text.isNotEmpty);
+                 onPressed: isLoading
+                      ? null
+                      : () async {
+                          bool isOtpComplete =
+                              controllers.every((controller) => controller.text.isNotEmpty);
 
-  if (!isOtpComplete) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Please enter the complete 6-digit OTP"),
-      ),
-    );
-    return;
-  }
+                          if (!isOtpComplete) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Please enter the complete 6-digit OTP"),
+                              ),
+                            );
+                            return;
+                          }
 
-  String otp = controllers.map((c) => c.text).join();
-   Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (context) => const VerificationSuccessScreen(),
-    ),
-  );
-  
-},
+                          String otp = controllers.map((c) => c.text).join();
+                          setState(() => isLoading = true);
+
+                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                          final signUpProvider = Provider.of<SignUpProvider>(context, listen: false);
+
+                          // 1. Verify OTP
+                          final success = await authProvider.verify(signUpProvider.email, otp);
+
+                          if (!success) {
+                            setState(() => isLoading = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Invalid or expired OTP")),
+                            );
+                            return;
+                          }
+
+                          setState(() => isLoading = false);
+
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (context) => const VerificationSuccessScreen(),
+                            ),
+                            (route) => false,
+                          );
+                        },
 
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.colorScheme.primary,

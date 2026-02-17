@@ -1,6 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:college_hop/providers/auth_provider.dart';
+import 'package:college_hop/providers/signup_provider.dart';
+import 'package:college_hop/services/api_service.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -30,6 +34,7 @@ class _ProfileSetupScreenState
 
   final Set<String> selectedInterests = {};
   File? profileImage;
+  bool isLoading = false;
 
   final ImagePicker _picker = ImagePicker();
 
@@ -228,10 +233,65 @@ class _ProfileSetupScreenState
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // Handle profile setup
-                    print(selectedInterests);
-                  },
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          setState(() => isLoading = true);
+
+                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                          final token = authProvider.accessToken;
+
+                          if (token == null) {
+                            setState(() => isLoading = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Not authenticated. Please log in again.")),
+                            );
+                            return;
+                          }
+
+                          try {
+                            final signUpProvider = Provider.of<SignUpProvider>(context, listen: false);
+
+                            // Merge signup data with profile setup data
+                            final profileData = signUpProvider.toProfilePayload();
+                            profileData["bio"] = bioController.text.trim();
+                            profileData["interests"] = selectedInterests.toList();
+
+                            final res = await ApiService.updateProfile(token, profileData);
+
+                            setState(() => isLoading = false);
+
+                            if (res.statusCode == 200) {
+                              signUpProvider.reset();
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => AlertDialog(
+                                  title: const Text("Profile Complete!"),
+                                  content: const Text("Your profile has been set up successfully."),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                        // TODO: Navigate to home/dashboard when available
+                                      },
+                                      child: const Text("OK"),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text("Failed to save profile: ${res.body}")),
+                              );
+                            }
+                          } catch (e) {
+                            setState(() => isLoading = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Error: $e")),
+                            );
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor:
                         theme.colorScheme.primary,

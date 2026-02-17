@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:college_hop/providers/signup_provider.dart';
+import 'package:college_hop/services/api_service.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 import 'package:file_picker/file_picker.dart';
 import 'sign_up_4.dart';
@@ -12,6 +15,8 @@ class SignUpStep3 extends StatefulWidget {
 
 class _SignUpStep3State extends State<SignUpStep3> {
   String? fileName;
+  String? pickedFilePath;
+  bool isLoading = false;
 
   Future<void> pickPDF() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -22,6 +27,7 @@ class _SignUpStep3State extends State<SignUpStep3> {
     if (result != null) {
       setState(() {
         fileName = result.files.single.name;
+        pickedFilePath = result.files.single.path;
       });
     }
   }
@@ -156,14 +162,40 @@ class _SignUpStep3State extends State<SignUpStep3> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: fileName == null
+                  onPressed: (fileName == null || isLoading)
                       ? null
-                      : () {
-                          Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const SignUpStep4(),
-                      ),
-                    );
+                      : () async {
+                          // Store file path locally for upload after auth
+                          setState(() => isLoading = true);
+
+                          final signUp = Provider.of<SignUpProvider>(context, listen: false);
+                          // Store the picked file path for later upload
+                          if (pickedFilePath != null) {
+                            signUp.updateStep3(idCardUrl: pickedFilePath!);
+                          }
+
+                          // Trigger OTP
+                          try {
+                            final res = await ApiService.signup(signUp.email);
+                            setState(() => isLoading = false);
+
+                            if (res.statusCode == 200) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const SignUpStep4(),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(res.body)),
+                              );
+                            }
+                          } catch (e) {
+                            setState(() => isLoading = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Connection failed. Is the backend running?")),
+                            );
+                          }
                         },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.colorScheme.primary,
@@ -171,13 +203,19 @@ class _SignUpStep3State extends State<SignUpStep3> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    "Continue",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text(
+                          "Continue",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
 

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:college_hop/providers/signup_provider.dart';
 import 'sign_up_2.dart';
 import 'login_screen.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
@@ -165,12 +167,17 @@ const SizedBox(height: 24),
                   height: 52,
                   child: ElevatedButton(
                     onPressed: () {
-                     if (_formKey.currentState!.validate()) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const SignUpStep2(),
-                        ),
-                      );
+                      if (_formKey.currentState!.validate()) {
+                        final signUp = Provider.of<SignUpProvider>(context, listen: false);
+                        signUp.updateStep1(
+                          fullName: nameController.text.trim(),
+                          email: emailController.text.trim(),
+                        );
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const SignUpStep2(),
+                          ),
+                        );
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -181,7 +188,7 @@ const SizedBox(height: 24),
                       ),
                     ),
                     child: const Text(
-                      "Create Account",
+                      "Continue",
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
