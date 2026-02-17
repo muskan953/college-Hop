@@ -3,17 +3,20 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/muskan953/college-Hop/internal/auth"
 	"github.com/muskan953/college-Hop/internal/profile"
+	"github.com/muskan953/college-Hop/internal/server"
 	"github.com/muskan953/college-Hop/pkg/db"
 	"github.com/muskan953/college-Hop/pkg/migrations"
+	"github.com/muskan953/college-Hop/pkg/storage"
 )
 
 func main() {
 	database, err := db.Connect()
 	if err != nil {
-		log.Fatal("Database connection failed: %v", err)
+		log.Fatalf("Database connection failed: %v", err)
 	}
 
 	defer database.Close()
@@ -24,33 +27,25 @@ func main() {
 
 	log.Println("database migrations applied")
 
-	mux := http.NewServeMux()
+	// Initialize file storage
+	uploadDir := os.Getenv("UPLOAD_DIR")
+	if uploadDir == "" {
+		uploadDir = "./uploads"
+	}
+	baseURL := os.Getenv("UPLOAD_BASE_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost:8080/uploads"
+	}
 
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
+	store, err := storage.NewLocalStorage(uploadDir, baseURL)
+	if err != nil {
+		log.Fatalf("failed to initialize storage: %v", err)
+	}
 
 	authRepo := auth.NewRepository(database)
-	authHandler := auth.NewHandler(authRepo)
-
-	mux.HandleFunc("/auth/signup", authHandler.Signup)
-	mux.HandleFunc("/auth/verify", authHandler.Verify)
-
 	profileRepo := profile.NewRepository(database)
-	profileHandler := profile.NewHandler(profileRepo)
 
-	mux.Handle("/me", auth.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
-			profileHandler.GetMe(w, r)
-			return
-		}
-		if r.Method == http.MethodPut {
-			profileHandler.UpdateMe(w, r)
-			return
-		}
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	})))
+	mux := server.NewRouter(authRepo, profileRepo, store, uploadDir)
 
 	log.Println("Server running on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
