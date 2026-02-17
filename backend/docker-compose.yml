@@ -11,19 +11,23 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USER: collegehop
-      DB_PASSWORD: collegehop
-      DB_NAME: collegehop
+      DB_USER: college_hop
+      DB_PASSWORD: college_hop
+      DB_NAME: college_hop
+      UPLOAD_DIR: /app/uploads
+      UPLOAD_BASE_URL: http://localhost:8080/uploads
+    volumes:
+      - ./uploads:/app/uploads
 
   postgres:
     image: postgres:15
     container_name: collegehop-postgres
     environment:
-      POSTGRES_USER: collegehop
-      POSTGRES_PASSWORD: collegehop
-      POSTGRES_DB: collegehop
+      POSTGRES_USER: college_hop
+      POSTGRES_PASSWORD: college_hop
+      POSTGRES_DB: college_hop
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
