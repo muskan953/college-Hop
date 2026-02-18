@@ -48,6 +48,30 @@ Sends an OTP to the given email address.
 
 ---
 
+### `POST /auth/login`
+
+Sends an OTP to the given email address, but only if the user already exists.
+
+**Auth**: None
+
+**Request Body**:
+```json
+{
+  "email": "student@nitw.ac.in"
+}
+```
+
+**Responses**:
+
+| Status | Body | Description |
+|--------|------|-------------|
+| `200` | `{"message": "OTP sent"}` | OTP generated and logged |
+| `400` | `invalid email / personal email domains not allowed` | Email validation failed |
+| `404` | `no account found with this email` | User does not exist |
+| `429` | `please wait before requesting another OTP` | Rate limited (1 OTP per minute) |
+
+---
+
 ### `POST /auth/verify`
 
 Verifies the OTP and returns JWT tokens.

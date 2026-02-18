@@ -57,7 +57,15 @@ curl -i -X POST http://localhost:8080/auth/signup \
 ```
 *Note: Check the backend logs (`docker logs collegehop-backend`) to see the printed OTP for testing purposes.*
 
-#### Step B: Verify OTP
+#### Step B: Login (Existing User)
+If you already have an account, use the login endpoint to request an OTP.
+```bash
+curl -i -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@nitw.ac.in"}'
+```
+
+#### Step C: Verify OTP
 Exchange the OTP for a JWT token. Replace `<OTP>` with the one from the logs.
 ```bash
 curl -i -X POST http://localhost:8080/auth/verify \
@@ -99,6 +107,28 @@ curl -i -X POST http://localhost:8080/upload \
   -F "file=@test.jpg"
 ```
 
+
+
+### Admin User Management
+
+#### List Pending Users
+```bash
+curl -i -X GET http://localhost:8080/admin/users/pending \
+  -H "X-Admin-Secret: <ADMIN_SECRET>"
+```
+
+#### Verify a User
+```bash
+curl -i -X POST http://localhost:8080/admin/users/<USER_ID>/verify \
+  -H "X-Admin-Secret: <ADMIN_SECRET>"
+```
+
+#### Block a User
+```bash
+curl -i -X POST http://localhost:8080/admin/users/<USER_ID>/block \
+  -H "X-Admin-Secret: <ADMIN_SECRET>"
+```
+
 ### Events
 
 #### List Approved Events (public)
@@ -123,6 +153,12 @@ curl -i -X POST http://localhost:8080/events \
 #### Approve an Event (admin)
 ```bash
 curl -i -X POST http://localhost:8080/admin/events/<EVENT_ID>/approve \
+  -H "X-Admin-Secret: <ADMIN_SECRET>"
+```
+
+#### Reject an Event (admin)
+```bash
+curl -i -X POST http://localhost:8080/admin/events/<EVENT_ID>/reject \
   -H "X-Admin-Secret: <ADMIN_SECRET>"
 ```
 
