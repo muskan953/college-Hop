@@ -137,16 +137,25 @@ curl -i http://localhost:8080/events
 ```
 
 #### Submit a New Event (requires auth)
+
+Required fields: `name`, `venue`, `organizer`, `start_date`.
+All other fields are optional.
+
 ```bash
 curl -i -X POST http://localhost:8080/events \
   -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "TechFest 2026",
-    "date": "2026-03-15",
-    "location": "NIT Warangal",
+    "category": "Technical Fest",
+    "venue": "NIT Warangal",
     "organizer": "CSE Dept",
-    "url": "https://techfest.nitw.ac.in"
+    "start_date": "2026-03-15",
+    "end_date": "2026-03-17",
+    "time_description": "9 AM - 6 PM",
+    "event_link": "https://techfest.nitw.ac.in",
+    "brochure_url": "https://techfest.nitw.ac.in/brochure.pdf",
+    "ticket_link": "https://techfest.nitw.ac.in/tickets"
   }'
 ```
 

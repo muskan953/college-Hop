@@ -21,8 +21,8 @@ func TestListEvents_ReturnsApproved(t *testing.T) {
 	mockEventsRepo := &MockEventsRepositoryFull{
 		ListApprovedEventsFunc: func(ctx context.Context) ([]events.Event, error) {
 			return []events.Event{
-				{ID: "evt-1", Name: "TechFest 2026", Location: "NIT Warangal", Status: "approved"},
-				{ID: "evt-2", Name: "HackNITW", Location: "NIT Warangal", Status: "approved"},
+				{ID: "evt-1", Name: "TechFest 2026", Venue: "NIT Warangal", Status: "approved"},
+				{ID: "evt-2", Name: "HackNITW", Venue: "NIT Warangal", Status: "approved"},
 			}, nil
 		},
 	}
@@ -91,10 +91,10 @@ func TestCreateEvent_RequiresAuth(t *testing.T) {
 	)
 
 	payload := map[string]string{
-		"name":      "TechFest",
-		"date":      "2026-03-15",
-		"location":  "NIT Warangal",
-		"organizer": "CSE Dept",
+		"name":       "TechFest",
+		"start_date": "2026-03-15",
+		"venue":      "NIT Warangal",
+		"organizer":  "CSE Dept",
 	}
 	body, _ := json.Marshal(payload)
 	req, _ := http.NewRequest("POST", "/events", bytes.NewBuffer(body))
@@ -124,10 +124,10 @@ func TestCreateEvent_Success(t *testing.T) {
 	)
 
 	payload := map[string]string{
-		"name":      "TechFest 2026",
-		"date":      "2026-03-15",
-		"location":  "NIT Warangal",
-		"organizer": "CSE Dept",
+		"name":       "TechFest 2026",
+		"start_date": "2026-03-15",
+		"venue":      "NIT Warangal",
+		"organizer":  "CSE Dept",
 	}
 	body, _ := json.Marshal(payload)
 	req, _ := http.NewRequest("POST", "/events", bytes.NewBuffer(body))

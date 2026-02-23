@@ -36,29 +36,54 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validation
+	// Trim whitespace
 	req.Name = strings.TrimSpace(req.Name)
-	req.Location = strings.TrimSpace(req.Location)
+	req.Venue = strings.TrimSpace(req.Venue)
 	req.Organizer = strings.TrimSpace(req.Organizer)
-	if req.Name == "" || req.Location == "" || req.Organizer == "" || req.Date == "" {
-		http.Error(w, "missing required fields (name, date, location, organizer)", http.StatusBadRequest)
+	req.Category = strings.TrimSpace(req.Category)
+	req.TimeDescription = strings.TrimSpace(req.TimeDescription)
+	req.EventLink = strings.TrimSpace(req.EventLink)
+	req.BrochureURL = strings.TrimSpace(req.BrochureURL)
+	req.TicketLink = strings.TrimSpace(req.TicketLink)
+
+	// Required field validation
+	if req.Name == "" || req.Venue == "" || req.Organizer == "" || req.StartDate == "" {
+		http.Error(w, "missing required fields (name, start_date, venue, organizer)", http.StatusBadRequest)
 		return
 	}
 
-	eventDate, err := time.Parse("2006-01-02", req.Date)
+	startDate, err := time.Parse("2006-01-02", req.StartDate)
 	if err != nil {
-		http.Error(w, "invalid date format, use YYYY-MM-DD", http.StatusBadRequest)
+		http.Error(w, "invalid start_date format, use YYYY-MM-DD", http.StatusBadRequest)
 		return
 	}
 
 	event := &Event{
-		Name:        req.Name,
-		Date:        eventDate,
-		Location:    req.Location,
-		Organizer:   req.Organizer,
-		URL:         strings.TrimSpace(req.URL),
-		SubmittedBy: user.ID,
-		Status:      "pending",
+		Name:            req.Name,
+		Category:        req.Category,
+		Venue:           req.Venue,
+		Organizer:       req.Organizer,
+		StartDate:       startDate,
+		TimeDescription: req.TimeDescription,
+		EventLink:       req.EventLink,
+		BrochureURL:     req.BrochureURL,
+		TicketLink:      req.TicketLink,
+		SubmittedBy:     user.ID,
+		Status:          "pending",
+	}
+
+	// Optional end date
+	if req.EndDate != "" {
+		endDate, err := time.Parse("2006-01-02", req.EndDate)
+		if err != nil {
+			http.Error(w, "invalid end_date format, use YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		if endDate.Before(startDate) {
+			http.Error(w, "end_date must be on or after start_date", http.StatusBadRequest)
+			return
+		}
+		event.EndDate = &endDate
 	}
 
 	if err := h.repo.CreateEvent(r.Context(), event); err != nil {

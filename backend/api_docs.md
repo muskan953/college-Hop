@@ -339,10 +339,15 @@ Lists all approved events.
   {
     "id": "uuid",
     "name": "TechFest 2026",
-    "date": "2026-03-15T00:00:00Z",
-    "location": "NIT Warangal",
+    "category": "Technical Fest",
+    "venue": "NIT Warangal",
     "organizer": "CSE Dept",
-    "url": "https://techfest.nitw.ac.in",
+    "start_date": "2026-03-15T00:00:00Z",
+    "end_date": "2026-03-17T00:00:00Z",
+    "time_description": "9 AM - 6 PM",
+    "event_link": "https://techfest.nitw.ac.in",
+    "brochure_url": "https://techfest.nitw.ac.in/brochure.pdf",
+    "ticket_link": "https://techfest.nitw.ac.in/tickets",
     "status": "approved",
     "created_at": "2026-02-18T00:00:00Z"
   }
@@ -361,19 +366,39 @@ Submits a new event for admin approval.
 ```json
 {
   "name": "TechFest 2026",
-  "date": "2026-03-15",
-  "location": "NIT Warangal",
+  "category": "Technical Fest",
+  "venue": "NIT Warangal",
   "organizer": "CSE Dept",
-  "url": "https://techfest.nitw.ac.in"
+  "start_date": "2026-03-15",
+  "end_date": "2026-03-17",
+  "time_description": "9 AM - 6 PM",
+  "event_link": "https://techfest.nitw.ac.in",
+  "brochure_url": "https://techfest.nitw.ac.in/brochure.pdf",
+  "ticket_link": "https://techfest.nitw.ac.in/tickets"
 }
 ```
+
+**Validation Rules**:
+
+| Field | Constraint |
+|-------|------------|
+| `name` | Required |
+| `venue` | Required |
+| `organizer` | Required |
+| `start_date` | Required, format `YYYY-MM-DD` |
+| `end_date` | Optional, format `YYYY-MM-DD`, must be ≥ `start_date` |
+| `category` | Optional |
+| `time_description` | Optional (e.g. `"9 AM - 6 PM"`) |
+| `event_link` | Optional, official event page URL |
+| `brochure_url` | Optional, URL to official brochure |
+| `ticket_link` | Optional, URL to ticket purchase page |
 
 **Responses**:
 
 | Status | Description |
 |--------|-------------|
 | `201` | Event created with `status: "pending"` |
-| `400` | Missing required fields (name, date, location, organizer) |
+| `400` | Missing required fields or invalid date format |
 | `401` | Missing or invalid token |
 
 ---
@@ -415,9 +440,12 @@ Returns the user's currently selected event.
   "event": {
     "id": "uuid",
     "name": "TechFest 2026",
-    "date": "2026-03-15T00:00:00Z",
-    "location": "NIT Warangal",
+    "category": "Technical Fest",
+    "venue": "NIT Warangal",
     "organizer": "CSE Dept",
+    "start_date": "2026-03-15T00:00:00Z",
+    "end_date": "2026-03-17T00:00:00Z",
+    "event_link": "https://techfest.nitw.ac.in",
     "status": "approved"
   },
   "status": "interested"

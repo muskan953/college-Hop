@@ -26,20 +26,72 @@ func NewRepository(db *sql.DB) Repository {
 
 func (r *PostgresRepository) CreateEvent(ctx context.Context, event *Event) error {
 	return r.db.QueryRowContext(ctx,
-		`INSERT INTO events (name, date, location, organizer, url, submitted_by, status, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		`INSERT INTO events
+		    (name, category, venue, organizer, start_date, end_date, time_description,
+		     event_link, brochure_url, ticket_link, submitted_by, status, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		 RETURNING id`,
-		event.Name, event.Date, event.Location, event.Organizer, event.URL,
+		event.Name, event.Category, event.Venue, event.Organizer,
+		event.StartDate, event.EndDate, event.TimeDescription,
+		event.EventLink, event.BrochureURL, event.TicketLink,
 		event.SubmittedBy, event.Status, time.Now(),
 	).Scan(&event.ID)
 }
 
+func scanEvent(row interface {
+	Scan(dest ...any) error
+}, e *Event) error {
+	var (
+		category        sql.NullString
+		endDate         sql.NullTime
+		timeDescription sql.NullString
+		eventLink       sql.NullString
+		brochureURL     sql.NullString
+		ticketLink      sql.NullString
+	)
+	err := row.Scan(
+		&e.ID, &e.Name, &category, &e.Venue, &e.Organizer,
+		&e.StartDate, &endDate, &timeDescription,
+		&eventLink, &brochureURL, &ticketLink,
+		&e.Status, &e.CreatedAt,
+	)
+	if err != nil {
+		return err
+	}
+	if category.Valid {
+		e.Category = category.String
+	}
+	if endDate.Valid {
+		t := endDate.Time
+		e.EndDate = &t
+	}
+	if timeDescription.Valid {
+		e.TimeDescription = timeDescription.String
+	}
+	if eventLink.Valid {
+		e.EventLink = eventLink.String
+	}
+	if brochureURL.Valid {
+		e.BrochureURL = brochureURL.String
+	}
+	if ticketLink.Valid {
+		e.TicketLink = ticketLink.String
+	}
+	return nil
+}
+
+const listEventColumns = `
+	id, name, category, venue, organizer,
+	start_date, end_date, time_description,
+	event_link, brochure_url, ticket_link,
+	status, created_at`
+
 func (r *PostgresRepository) ListApprovedEvents(ctx context.Context) ([]Event, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, name, date, location, organizer, COALESCE(url, ''), status, created_at
+		`SELECT`+listEventColumns+`
 		 FROM events
 		 WHERE status = 'approved'
-		 ORDER BY date ASC`)
+		 ORDER BY start_date ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +100,7 @@ func (r *PostgresRepository) ListApprovedEvents(ctx context.Context) ([]Event, e
 	var events []Event
 	for rows.Next() {
 		var e Event
-		if err := rows.Scan(&e.ID, &e.Name, &e.Date, &e.Location, &e.Organizer, &e.URL, &e.Status, &e.CreatedAt); err != nil {
+		if err := scanEvent(rows, &e); err != nil {
 			return nil, err
 		}
 		events = append(events, e)
@@ -58,7 +110,7 @@ func (r *PostgresRepository) ListApprovedEvents(ctx context.Context) ([]Event, e
 
 func (r *PostgresRepository) ListPendingEvents(ctx context.Context) ([]Event, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, name, date, location, organizer, COALESCE(url, ''), COALESCE(submitted_by::text, ''), status, created_at
+		`SELECT`+listEventColumns+`
 		 FROM events
 		 WHERE status = 'pending'
 		 ORDER BY created_at DESC`)
@@ -70,7 +122,7 @@ func (r *PostgresRepository) ListPendingEvents(ctx context.Context) ([]Event, er
 	var events []Event
 	for rows.Next() {
 		var e Event
-		if err := rows.Scan(&e.ID, &e.Name, &e.Date, &e.Location, &e.Organizer, &e.URL, &e.SubmittedBy, &e.Status, &e.CreatedAt); err != nil {
+		if err := scanEvent(rows, &e); err != nil {
 			return nil, err
 		}
 		events = append(events, e)
@@ -87,10 +139,9 @@ func (r *PostgresRepository) UpdateEventStatus(ctx context.Context, eventID stri
 
 func (r *PostgresRepository) GetEvent(ctx context.Context, eventID string) (*Event, error) {
 	var e Event
-	err := r.db.QueryRowContext(ctx,
-		`SELECT id, name, date, location, organizer, COALESCE(url, ''), status, created_at
-		 FROM events WHERE id = $1`, eventID,
-	).Scan(&e.ID, &e.Name, &e.Date, &e.Location, &e.Organizer, &e.URL, &e.Status, &e.CreatedAt)
+	err := scanEvent(r.db.QueryRowContext(ctx,
+		`SELECT`+listEventColumns+`
+		 FROM events WHERE id = $1`, eventID), &e)
 	if err != nil {
 		return nil, err
 	}
