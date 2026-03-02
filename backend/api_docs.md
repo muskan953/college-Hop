@@ -571,6 +571,120 @@ Returns groups for an event, scored and sorted by interest similarity with the u
 
 ---
 
+### `GET /groups/{id}`
+
+Returns full details about a travel group including its member profiles.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Response** `200 OK`:
+```json
+{
+  "id": "uuid",
+  "event_id": "uuid",
+  "name": "Team Alpha",
+  "description": "Looking for travel buddies",
+  "created_by": "uuid",
+  "max_members": 4,
+  "created_at": "2026-03-01T00:00:00Z",
+  "member_count": 2,
+  "members": [
+    {
+      "user_id": "uuid",
+      "full_name": "Muskan Sharma",
+      "college_name": "NIT Warangal",
+      "profile_photo_url": "http://localhost:8080/uploads/profile_photo/abc.jpg",
+      "joined_at": "2026-03-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+| Status | Description |
+|--------|-------------|
+| `200` | Group details returned |
+| `401` | Missing or invalid token |
+| `404` | Group not found |
+
+---
+
+### `PUT /groups/{id}`
+
+Updates a group's name and/or description. **Creator only.**
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Request Body**:
+```json
+{
+  "name": "Team Alpha Updated",
+  "description": "New travel plan description"
+}
+```
+
+| Status | Description |
+|--------|-------------|
+| `200` | `{"message": "group updated"}` |
+| `400` | Missing `name` |
+| `401` | Missing or invalid token |
+| `403` | Not the group creator |
+| `404` | Group not found |
+
+---
+
+### `DELETE /groups/{id}`
+
+Permanently deletes a group and removes all members. **Creator only.**
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+| Status | Description |
+|--------|-------------|
+| `200` | `{"message": "group deleted"}` |
+| `401` | Missing or invalid token |
+| `403` | Not the group creator |
+| `404` | Group not found |
+
+---
+
+### `POST /groups/{id}/leave`
+
+Leave a travel group. **Not available to the group creator** (delete the group instead).
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+| Status | Description |
+|--------|-------------|
+| `200` | `{"message": "left group"}` |
+| `400` | Creator trying to leave, or user not a member |
+| `401` | Missing or invalid token |
+| `404` | Group not found |
+
+---
+
+### `POST /groups/{id}/kick`
+
+Remove a member from the group. **Creator only.**
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Request Body**:
+```json
+{
+  "user_id": "uuid-of-member-to-kick"
+}
+```
+
+| Status | Description |
+|--------|-------------|
+| `200` | `{"message": "member removed"}` |
+| `400` | Missing `user_id`, user not a member, or creator kicking themselves |
+| `401` | Missing or invalid token |
+| `403` | Not the group creator |
+| `404` | Group not found |
+
+---
+
 ## Peer Matching
 
 ### `GET /users/matches?event_id=<uuid>`

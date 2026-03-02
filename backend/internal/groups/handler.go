@@ -221,6 +221,251 @@ func (h *Handler) SuggestedGroups(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(results)
 }
 
+// GET /groups/{id} — Get a single group with full member profiles
+func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	_, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// /groups/{id}
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 2 {
+		http.Error(w, "invalid URL", http.StatusBadRequest)
+		return
+	}
+	groupID := parts[1]
+
+	group, err := h.repo.GetGroup(r.Context(), groupID)
+	if err != nil {
+		http.Error(w, "group not found", http.StatusNotFound)
+		return
+	}
+
+	members, err := h.repo.GetGroupMembers(r.Context(), groupID)
+	if err != nil {
+		http.Error(w, "failed to get members", http.StatusInternalServerError)
+		return
+	}
+	if members == nil {
+		members = []GroupMemberProfile{}
+	}
+
+	resp := GroupDetailResponse{
+		Group:       *group,
+		MemberCount: len(members),
+		Members:     members,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// PUT /groups/{id} — Update group name/description (creator only)
+func (h *Handler) UpdateGroup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 2 {
+		http.Error(w, "invalid URL", http.StatusBadRequest)
+		return
+	}
+	groupID := parts[1]
+
+	group, err := h.repo.GetGroup(r.Context(), groupID)
+	if err != nil {
+		http.Error(w, "group not found", http.StatusNotFound)
+		return
+	}
+	if group.CreatedBy != user.ID {
+		http.Error(w, "only the group creator can update the group", http.StatusForbidden)
+		return
+	}
+
+	var req UpdateGroupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.repo.UpdateGroup(r.Context(), groupID, req.Name, strings.TrimSpace(req.Description)); err != nil {
+		http.Error(w, "failed to update group", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "group updated"})
+}
+
+// DELETE /groups/{id} — Delete the group (creator only)
+func (h *Handler) DeleteGroup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 2 {
+		http.Error(w, "invalid URL", http.StatusBadRequest)
+		return
+	}
+	groupID := parts[1]
+
+	group, err := h.repo.GetGroup(r.Context(), groupID)
+	if err != nil {
+		http.Error(w, "group not found", http.StatusNotFound)
+		return
+	}
+	if group.CreatedBy != user.ID {
+		http.Error(w, "only the group creator can delete the group", http.StatusForbidden)
+		return
+	}
+
+	if err := h.repo.DeleteGroup(r.Context(), groupID); err != nil {
+		http.Error(w, "failed to delete group", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "group deleted"})
+}
+
+// POST /groups/{id}/leave — Leave a group (any member except creator)
+func (h *Handler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// /groups/{id}/leave
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 3 {
+		http.Error(w, "invalid URL", http.StatusBadRequest)
+		return
+	}
+	groupID := parts[1]
+
+	group, err := h.repo.GetGroup(r.Context(), groupID)
+	if err != nil {
+		http.Error(w, "group not found", http.StatusNotFound)
+		return
+	}
+
+	if group.CreatedBy == user.ID {
+		http.Error(w, "you are the group creator — delete the group instead of leaving", http.StatusBadRequest)
+		return
+	}
+
+	isMember, err := h.repo.IsGroupMember(r.Context(), groupID, user.ID)
+	if err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	if !isMember {
+		http.Error(w, "you are not a member of this group", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.repo.RemoveMember(r.Context(), groupID, user.ID); err != nil {
+		http.Error(w, "failed to leave group", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "left group"})
+}
+
+// POST /groups/{id}/kick — Kick a member from the group (creator only)
+func (h *Handler) KickMember(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 3 {
+		http.Error(w, "invalid URL", http.StatusBadRequest)
+		return
+	}
+	groupID := parts[1]
+
+	group, err := h.repo.GetGroup(r.Context(), groupID)
+	if err != nil {
+		http.Error(w, "group not found", http.StatusNotFound)
+		return
+	}
+	if group.CreatedBy != user.ID {
+		http.Error(w, "only the group creator can kick members", http.StatusForbidden)
+		return
+	}
+
+	var req KickRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.UserID == "" {
+		http.Error(w, "user_id is required", http.StatusBadRequest)
+		return
+	}
+	if req.UserID == user.ID {
+		http.Error(w, "you cannot kick yourself — delete the group instead", http.StatusBadRequest)
+		return
+	}
+
+	isMember, err := h.repo.IsGroupMember(r.Context(), groupID, req.UserID)
+	if err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	if !isMember {
+		http.Error(w, "user is not a member of this group", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.repo.RemoveMember(r.Context(), groupID, req.UserID); err != nil {
+		http.Error(w, "failed to kick member", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "member removed"})
+}
+
 // GET /users/matches?event_id=xxx — Find best peer matches
 func (h *Handler) FindMatches(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

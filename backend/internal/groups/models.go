@@ -36,6 +36,33 @@ type GroupMember struct {
 	JoinedAt time.Time `json:"joined_at"`
 }
 
+// GroupMemberProfile contains displayable info about a group member
+type GroupMemberProfile struct {
+	UserID          string    `json:"user_id"`
+	FullName        string    `json:"full_name"`
+	CollegeName     string    `json:"college_name"`
+	ProfilePhotoURL string    `json:"profile_photo_url,omitempty"`
+	JoinedAt        time.Time `json:"joined_at"`
+}
+
+// GroupDetailResponse is returned by GET /groups/{id} — full group info with members
+type GroupDetailResponse struct {
+	Group
+	MemberCount int                  `json:"member_count"`
+	Members     []GroupMemberProfile `json:"members"`
+}
+
+// UpdateGroupRequest is the payload for PUT /groups/{id}
+type UpdateGroupRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+// KickRequest is the payload for POST /groups/{id}/kick
+type KickRequest struct {
+	UserID string `json:"user_id"`
+}
+
 // MatchedUser represents a peer match result
 type MatchedUser struct {
 	UserID          string   `json:"user_id"`

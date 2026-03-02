@@ -265,6 +265,11 @@ type MockGroupsRepositoryFull struct {
 	GetGroupMemberInterestsFunc func(ctx context.Context, groupID string) ([][]string, error)
 	GetUsersForEventFunc        func(ctx context.Context, eventID, excludeUserID string) ([]groups.UserWithInterests, error)
 	GetUserInterestsFunc        func(ctx context.Context, userID string) ([]string, error)
+	GetGroupMembersFunc         func(ctx context.Context, groupID string) ([]groups.GroupMemberProfile, error)
+	UpdateGroupFunc             func(ctx context.Context, groupID, name, description string) error
+	DeleteGroupFunc             func(ctx context.Context, groupID string) error
+	RemoveMemberFunc            func(ctx context.Context, groupID, userID string) error
+	IsGroupMemberFunc           func(ctx context.Context, groupID, userID string) (bool, error)
 }
 
 func (m *MockGroupsRepositoryFull) CreateGroup(ctx context.Context, group *groups.Group) error {
@@ -314,4 +319,34 @@ func (m *MockGroupsRepositoryFull) GetUserInterests(ctx context.Context, userID 
 		return m.GetUserInterestsFunc(ctx, userID)
 	}
 	return []string{}, nil
+}
+func (m *MockGroupsRepositoryFull) GetGroupMembers(ctx context.Context, groupID string) ([]groups.GroupMemberProfile, error) {
+	if m.GetGroupMembersFunc != nil {
+		return m.GetGroupMembersFunc(ctx, groupID)
+	}
+	return []groups.GroupMemberProfile{}, nil
+}
+func (m *MockGroupsRepositoryFull) UpdateGroup(ctx context.Context, groupID, name, description string) error {
+	if m.UpdateGroupFunc != nil {
+		return m.UpdateGroupFunc(ctx, groupID, name, description)
+	}
+	return nil
+}
+func (m *MockGroupsRepositoryFull) DeleteGroup(ctx context.Context, groupID string) error {
+	if m.DeleteGroupFunc != nil {
+		return m.DeleteGroupFunc(ctx, groupID)
+	}
+	return nil
+}
+func (m *MockGroupsRepositoryFull) RemoveMember(ctx context.Context, groupID, userID string) error {
+	if m.RemoveMemberFunc != nil {
+		return m.RemoveMemberFunc(ctx, groupID, userID)
+	}
+	return nil
+}
+func (m *MockGroupsRepositoryFull) IsGroupMember(ctx context.Context, groupID, userID string) (bool, error) {
+	if m.IsGroupMemberFunc != nil {
+		return m.IsGroupMemberFunc(ctx, groupID, userID)
+	}
+	return true, nil
 }

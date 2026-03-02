@@ -127,13 +127,25 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 	// Protected: create group
 	mux.Handle("/groups", auth.AuthMiddleware(http.HandlerFunc(groupsHandler.CreateGroup)))
 
-	// Protected: join group (/groups/{id}/join)
+	// Protected: group detail, update, delete, join, leave, kick (/groups/{id}/...)
 	mux.Handle("/groups/", auth.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/join") {
+		path := r.URL.Path
+		switch {
+		case strings.HasSuffix(path, "/join") && r.Method == http.MethodPost:
 			groupsHandler.JoinGroup(w, r)
-			return
+		case strings.HasSuffix(path, "/leave") && r.Method == http.MethodPost:
+			groupsHandler.LeaveGroup(w, r)
+		case strings.HasSuffix(path, "/kick") && r.Method == http.MethodPost:
+			groupsHandler.KickMember(w, r)
+		case r.Method == http.MethodGet:
+			groupsHandler.GetGroup(w, r)
+		case r.Method == http.MethodPut:
+			groupsHandler.UpdateGroup(w, r)
+		case r.Method == http.MethodDelete:
+			groupsHandler.DeleteGroup(w, r)
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
 		}
-		http.Error(w, "not found", http.StatusNotFound)
 	})))
 
 	// Protected: peer matching

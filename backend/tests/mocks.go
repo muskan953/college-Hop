@@ -191,3 +191,18 @@ func (m *MockGroupsRepository) GetUsersForEvent(ctx context.Context, eventID, ex
 func (m *MockGroupsRepository) GetUserInterests(ctx context.Context, userID string) ([]string, error) {
 	return []string{}, nil
 }
+func (m *MockGroupsRepository) GetGroupMembers(ctx context.Context, groupID string) ([]groups.GroupMemberProfile, error) {
+	return []groups.GroupMemberProfile{}, nil
+}
+func (m *MockGroupsRepository) UpdateGroup(ctx context.Context, groupID, name, description string) error {
+	return nil
+}
+func (m *MockGroupsRepository) DeleteGroup(ctx context.Context, groupID string) error {
+	return nil
+}
+func (m *MockGroupsRepository) RemoveMember(ctx context.Context, groupID, userID string) error {
+	return nil
+}
+func (m *MockGroupsRepository) IsGroupMember(ctx context.Context, groupID, userID string) (bool, error) {
+	return false, nil
+}

@@ -14,6 +14,12 @@ type Repository interface {
 	GetGroupMemberInterests(ctx context.Context, groupID string) ([][]string, error)
 	GetUsersForEvent(ctx context.Context, eventID, excludeUserID string) ([]UserWithInterests, error)
 	GetUserInterests(ctx context.Context, userID string) ([]string, error)
+	// Group management
+	GetGroupMembers(ctx context.Context, groupID string) ([]GroupMemberProfile, error)
+	UpdateGroup(ctx context.Context, groupID, name, description string) error
+	DeleteGroup(ctx context.Context, groupID string) error
+	RemoveMember(ctx context.Context, groupID, userID string) error
+	IsGroupMember(ctx context.Context, groupID, userID string) (bool, error)
 }
 
 // UserWithInterests holds a user's profile data and interests for matching
@@ -153,6 +159,61 @@ func (r *PostgresRepository) GetUsersForEvent(ctx context.Context, eventID, excl
 	}
 
 	return users, nil
+}
+
+// GetGroupMembers returns profile details for all members of a group
+func (r *PostgresRepository) GetGroupMembers(ctx context.Context, groupID string) ([]GroupMemberProfile, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT gm.user_id, p.full_name, p.college_name, COALESCE(p.profile_photo_url, ''), gm.joined_at
+		 FROM group_members gm
+		 JOIN profiles p ON gm.user_id = p.user_id
+		 WHERE gm.group_id = $1
+		 ORDER BY gm.joined_at ASC`, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var members []GroupMemberProfile
+	for rows.Next() {
+		var m GroupMemberProfile
+		if err := rows.Scan(&m.UserID, &m.FullName, &m.CollegeName, &m.ProfilePhotoURL, &m.JoinedAt); err != nil {
+			return nil, err
+		}
+		members = append(members, m)
+	}
+	return members, nil
+}
+
+// UpdateGroup updates the name and description of a group
+func (r *PostgresRepository) UpdateGroup(ctx context.Context, groupID, name, description string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE travel_groups SET name = $1, description = $2 WHERE id = $3`,
+		name, description, groupID)
+	return err
+}
+
+// DeleteGroup removes a group and all its members (cascade via FK or manual)
+func (r *PostgresRepository) DeleteGroup(ctx context.Context, groupID string) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM travel_groups WHERE id = $1`, groupID)
+	return err
+}
+
+// RemoveMember removes a single user from a group
+func (r *PostgresRepository) RemoveMember(ctx context.Context, groupID, userID string) error {
+	_, err := r.db.ExecContext(ctx,
+		`DELETE FROM group_members WHERE group_id = $1 AND user_id = $2`,
+		groupID, userID)
+	return err
+}
+
+// IsGroupMember returns true if the user is currently a member of the group
+func (r *PostgresRepository) IsGroupMember(ctx context.Context, groupID, userID string) (bool, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM group_members WHERE group_id = $1 AND user_id = $2`,
+		groupID, userID).Scan(&count)
+	return count > 0, err
 }
 
 func (r *PostgresRepository) GetUserInterests(ctx context.Context, userID string) ([]string, error) {
