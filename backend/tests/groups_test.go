@@ -255,7 +255,458 @@ func TestFindMatches_ReturnsScoredResults(t *testing.T) {
 	}
 }
 
+// --- GetGroup Tests ---
+
+func TestGetGroup_Success(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
+			return &groups.Group{ID: groupID, Name: "Team Alpha", MaxMembers: 4, CreatedBy: "creator-id"}, nil
+		},
+		GetGroupMembersFunc: func(ctx context.Context, groupID string) ([]groups.GroupMemberProfile, error) {
+			return []groups.GroupMemberProfile{
+				{UserID: "creator-id", FullName: "Muskan Sharma", CollegeName: "NIT Warangal"},
+			}, nil
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	req, _ := http.NewRequest("GET", "/groups/grp-1", nil)
+	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("GET /groups/{id}: got %d, want %d. Body: %s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+
+	var resp groups.GroupDetailResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Name != "Team Alpha" {
+		t.Errorf("expected group name 'Team Alpha', got '%s'", resp.Name)
+	}
+	if resp.MemberCount != 1 {
+		t.Errorf("expected member_count 1, got %d", resp.MemberCount)
+	}
+}
+
+func TestGetGroup_RequiresAuth(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, &MockGroupsRepository{},
+		&MockFileStorage{}, "./uploads",
+	)
+
+	req, _ := http.NewRequest("GET", "/groups/grp-1", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("GET /groups/{id} without auth: got %d, want 401", rr.Code)
+	}
+}
+
+// --- UpdateGroup Tests ---
+
+func TestUpdateGroup_Success(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	creatorID := "creator-user-id"
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
+			return &groups.Group{ID: groupID, Name: "Old Name", CreatedBy: creatorID, MaxMembers: 4}, nil
+		},
+		UpdateGroupFunc: func(ctx context.Context, groupID, name, description string) error {
+			return nil
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	payload := map[string]string{"name": "New Name", "description": "Updated description"}
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("PUT", "/groups/grp-1", bytes.NewBuffer(body))
+
+	token, _ := auth.GenerateToken(creatorID, "creator@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("PUT /groups/{id}: got %d, want %d. Body: %s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+}
+
+func TestUpdateGroup_ForbiddenForNonCreator(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
+			return &groups.Group{ID: groupID, CreatedBy: "actual-creator-id", MaxMembers: 4}, nil
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	payload := map[string]string{"name": "Hacked Name"}
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("PUT", "/groups/grp-1", bytes.NewBuffer(body))
+
+	// Different user JWT — not the creator
+	token, _ := auth.GenerateToken("some-other-user", "other@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("PUT /groups/{id} by non-creator: got %d, want 403", rr.Code)
+	}
+}
+
+func TestUpdateGroup_MissingName(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	creatorID := "creator-user-id"
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
+			return &groups.Group{ID: groupID, CreatedBy: creatorID, MaxMembers: 4}, nil
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	payload := map[string]string{"description": "Only description, no name"}
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("PUT", "/groups/grp-1", bytes.NewBuffer(body))
+
+	token, _ := auth.GenerateToken(creatorID, "creator@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("PUT /groups/{id} with missing name: got %d, want 400", rr.Code)
+	}
+}
+
+// --- DeleteGroup Tests ---
+
+func TestDeleteGroup_Success(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	creatorID := "creator-user-id"
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
+			return &groups.Group{ID: groupID, CreatedBy: creatorID, MaxMembers: 4}, nil
+		},
+		DeleteGroupFunc: func(ctx context.Context, groupID string) error {
+			return nil
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	req, _ := http.NewRequest("DELETE", "/groups/grp-1", nil)
+	token, _ := auth.GenerateToken(creatorID, "creator@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("DELETE /groups/{id}: got %d, want %d. Body: %s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+}
+
+func TestDeleteGroup_ForbiddenForNonCreator(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
+			return &groups.Group{ID: groupID, CreatedBy: "actual-creator-id", MaxMembers: 4}, nil
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	req, _ := http.NewRequest("DELETE", "/groups/grp-1", nil)
+	token, _ := auth.GenerateToken("some-other-user", "other@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("DELETE /groups/{id} by non-creator: got %d, want 403", rr.Code)
+	}
+}
+
+// --- LeaveGroup Tests ---
+
+func TestLeaveGroup_Success(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	creatorID := "creator-user-id"
+	memberID := "member-user-id"
+
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
+			return &groups.Group{ID: groupID, CreatedBy: creatorID, MaxMembers: 4}, nil
+		},
+		IsGroupMemberFunc: func(ctx context.Context, groupID, userID string) (bool, error) {
+			return true, nil
+		},
+		RemoveMemberFunc: func(ctx context.Context, groupID, userID string) error {
+			return nil
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	req, _ := http.NewRequest("POST", "/groups/grp-1/leave", nil)
+	token, _ := auth.GenerateToken(memberID, "member@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("POST /groups/{id}/leave: got %d, want %d. Body: %s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+}
+
+func TestLeaveGroup_CreatorCannotLeave(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	creatorID := "creator-user-id"
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
+			return &groups.Group{ID: groupID, CreatedBy: creatorID, MaxMembers: 4}, nil
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	req, _ := http.NewRequest("POST", "/groups/grp-1/leave", nil)
+	token, _ := auth.GenerateToken(creatorID, "creator@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("POST /groups/{id}/leave by creator: got %d, want 400", rr.Code)
+	}
+}
+
+func TestLeaveGroup_NotAMember(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
+			return &groups.Group{ID: groupID, CreatedBy: "creator-id", MaxMembers: 4}, nil
+		},
+		IsGroupMemberFunc: func(ctx context.Context, groupID, userID string) (bool, error) {
+			return false, nil // not a member
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	req, _ := http.NewRequest("POST", "/groups/grp-1/leave", nil)
+	token, _ := auth.GenerateToken("random-user", "rando@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("POST /groups/{id}/leave by non-member: got %d, want 400", rr.Code)
+	}
+}
+
+// --- KickMember Tests ---
+
+func TestKickMember_Success(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	creatorID := "creator-user-id"
+	targetID := "target-member-id"
+
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
+			return &groups.Group{ID: groupID, CreatedBy: creatorID, MaxMembers: 4}, nil
+		},
+		IsGroupMemberFunc: func(ctx context.Context, groupID, userID string) (bool, error) {
+			return true, nil
+		},
+		RemoveMemberFunc: func(ctx context.Context, groupID, userID string) error {
+			return nil
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	payload := map[string]string{"user_id": targetID}
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("POST", "/groups/grp-1/kick", bytes.NewBuffer(body))
+	token, _ := auth.GenerateToken(creatorID, "creator@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("POST /groups/{id}/kick: got %d, want %d. Body: %s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+}
+
+func TestKickMember_ForbiddenForNonCreator(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
+			return &groups.Group{ID: groupID, CreatedBy: "actual-creator", MaxMembers: 4}, nil
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	payload := map[string]string{"user_id": "someone"}
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("POST", "/groups/grp-1/kick", bytes.NewBuffer(body))
+	token, _ := auth.GenerateToken("not-the-creator", "other@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("POST /groups/{id}/kick by non-creator: got %d, want 403", rr.Code)
+	}
+}
+
+func TestKickMember_CannotKickSelf(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	creatorID := "creator-user-id"
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
+			return &groups.Group{ID: groupID, CreatedBy: creatorID, MaxMembers: 4}, nil
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	// Try to kick yourself
+	payload := map[string]string{"user_id": creatorID}
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("POST", "/groups/grp-1/kick", bytes.NewBuffer(body))
+	token, _ := auth.GenerateToken(creatorID, "creator@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("POST /groups/{id}/kick self: got %d, want 400", rr.Code)
+	}
+}
+
+func TestKickMember_TargetNotInGroup(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	creatorID := "creator-user-id"
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
+			return &groups.Group{ID: groupID, CreatedBy: creatorID, MaxMembers: 4}, nil
+		},
+		IsGroupMemberFunc: func(ctx context.Context, groupID, userID string) (bool, error) {
+			return false, nil // target is not in the group
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	payload := map[string]string{"user_id": "ghost-user"}
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("POST", "/groups/grp-1/kick", bytes.NewBuffer(body))
+	token, _ := auth.GenerateToken(creatorID, "creator@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("POST /groups/{id}/kick non-member: got %d, want 400", rr.Code)
+	}
+}
+
 // MockGroupsRepositoryFull allows overriding individual methods
+
 type MockGroupsRepositoryFull struct {
 	CreateGroupFunc             func(ctx context.Context, group *groups.Group) error
 	GetGroupFunc                func(ctx context.Context, groupID string) (*groups.Group, error)
