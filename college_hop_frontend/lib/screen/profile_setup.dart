@@ -6,6 +6,7 @@ import 'package:college_hop/providers/auth_provider.dart';
 import 'package:college_hop/providers/signup_provider.dart';
 import 'package:college_hop/services/api_service.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
+import 'package:college_hop/screen/main_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -272,8 +273,10 @@ class _ProfileSetupScreenState
                                   actions: [
                                     TextButton(
                                       onPressed: () {
-                                        Navigator.of(context).pop();
-                                        // TODO: Navigate to home/dashboard when available
+                                        Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (context) => const MainScreen()),
+                              (route) => false,
+                            );
                                       },
                                       child: const Text("OK"),
                                     ),
