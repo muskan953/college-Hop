@@ -454,7 +454,44 @@ Returns the user's currently selected event.
 
 ---
 
+### `GET /me/groups`
+
+Returns all travel groups the authenticated user is currently a member of.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Response** `200 OK`:
+```json
+[
+  {
+    "id": "uuid",
+    "event_id": "uuid",
+    "name": "Team Alpha",
+    "description": "Looking for travel buddies",
+    "created_by": "uuid",
+    "max_members": 4,
+    "created_at": "2026-03-01T00:00:00Z",
+    "member_count": 3,
+    "match_score": 0,
+    "interests": null
+  }
+]
+```
+
+**Notes**:
+- Returns an empty array `[]` when the user has not joined any groups.
+- Groups are sorted by `created_at` descending (newest first).
+- `match_score` and `interests` are `0`/`null` in this response (those are only populated by `GET /groups/suggested`).
+
+| Status | Description |
+|--------|-------------|
+| `200` | List of groups (may be empty) |
+| `401` | Missing or invalid token |
+
+---
+
 ### `GET /admin/events/pending`
+
 
 Lists all events pending approval.
 

@@ -721,6 +721,7 @@ type MockGroupsRepositoryFull struct {
 	DeleteGroupFunc             func(ctx context.Context, groupID string) error
 	RemoveMemberFunc            func(ctx context.Context, groupID, userID string) error
 	IsGroupMemberFunc           func(ctx context.Context, groupID, userID string) (bool, error)
+	GetUserGroupsFunc           func(ctx context.Context, userID string) ([]groups.GroupWithDetails, error)
 }
 
 func (m *MockGroupsRepositoryFull) CreateGroup(ctx context.Context, group *groups.Group) error {
@@ -800,4 +801,107 @@ func (m *MockGroupsRepositoryFull) IsGroupMember(ctx context.Context, groupID, u
 		return m.IsGroupMemberFunc(ctx, groupID, userID)
 	}
 	return true, nil
+}
+func (m *MockGroupsRepositoryFull) GetUserGroups(ctx context.Context, userID string) ([]groups.GroupWithDetails, error) {
+	if m.GetUserGroupsFunc != nil {
+		return m.GetUserGroupsFunc(ctx, userID)
+	}
+	return []groups.GroupWithDetails{}, nil
+}
+
+// --- GetMyGroups Tests ---
+
+func TestGetMyGroups_ReturnsGroups(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	userID := "test-user-id"
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetUserGroupsFunc: func(ctx context.Context, uid string) ([]groups.GroupWithDetails, error) {
+			return []groups.GroupWithDetails{
+				{Group: groups.Group{ID: "grp-1", Name: "Team Alpha", EventID: "evt-1", CreatedBy: userID, MaxMembers: 4}, MemberCount: 2},
+				{Group: groups.Group{ID: "grp-2", Name: "Team Beta", EventID: "evt-2", CreatedBy: "someone-else", MaxMembers: 6}, MemberCount: 1},
+			}, nil
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	req, _ := http.NewRequest("GET", "/me/groups", nil)
+	token, _ := auth.GenerateToken(userID, "student@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("GET /me/groups: got %d, want %d. Body: %s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+
+	var result []groups.GroupWithDetails
+	if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	if len(result) != 2 {
+		t.Errorf("expected 2 groups, got %d", len(result))
+	}
+	if result[0].Name != "Team Alpha" {
+		t.Errorf("expected first group to be 'Team Alpha', got '%s'", result[0].Name)
+	}
+}
+
+func TestGetMyGroups_ReturnsEmptyWhenNone(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	mockGroupsRepo := &MockGroupsRepositoryFull{
+		GetUserGroupsFunc: func(ctx context.Context, userID string) ([]groups.GroupWithDetails, error) {
+			return []groups.GroupWithDetails{}, nil
+		},
+	}
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, mockGroupsRepo,
+		&MockFileStorage{}, "./uploads",
+	)
+
+	req, _ := http.NewRequest("GET", "/me/groups", nil)
+	token, _ := auth.GenerateToken("user-no-groups", "newbie@nitw.ac.in")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("GET /me/groups empty: got %d, want %d", rr.Code, http.StatusOK)
+	}
+
+	var result []groups.GroupWithDetails
+	if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	if len(result) != 0 {
+		t.Errorf("expected empty list, got %d groups", len(result))
+	}
+}
+
+func TestGetMyGroups_RequiresAuth(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+
+	router := server.NewRouter(
+		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockEventsRepository{}, &MockGroupsRepository{},
+		&MockFileStorage{}, "./uploads",
+	)
+
+	req, _ := http.NewRequest("GET", "/me/groups", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("GET /me/groups without auth: got %d, want 401", rr.Code)
+	}
 }

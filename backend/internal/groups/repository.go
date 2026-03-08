@@ -20,6 +20,7 @@ type Repository interface {
 	DeleteGroup(ctx context.Context, groupID string) error
 	RemoveMember(ctx context.Context, groupID, userID string) error
 	IsGroupMember(ctx context.Context, groupID, userID string) (bool, error)
+	GetUserGroups(ctx context.Context, userID string) ([]GroupWithDetails, error)
 }
 
 // UserWithInterests holds a user's profile data and interests for matching
@@ -236,4 +237,32 @@ func (r *PostgresRepository) GetUserInterests(ctx context.Context, userID string
 		interests = append(interests, name)
 	}
 	return interests, nil
+}
+
+// GetUserGroups returns all groups the user is currently a member of, with live member counts.
+func (r *PostgresRepository) GetUserGroups(ctx context.Context, userID string) ([]GroupWithDetails, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT tg.id, tg.event_id, tg.name, COALESCE(tg.description, ''), tg.created_by, tg.max_members, tg.created_at,
+		        (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = tg.id) AS member_count
+		 FROM group_members gm
+		 JOIN travel_groups tg ON gm.group_id = tg.id
+		 WHERE gm.user_id = $1
+		 ORDER BY tg.created_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var groups []GroupWithDetails
+	for rows.Next() {
+		var g GroupWithDetails
+		if err := rows.Scan(
+			&g.ID, &g.EventID, &g.Name, &g.Description,
+			&g.CreatedBy, &g.MaxMembers, &g.CreatedAt, &g.MemberCount,
+		); err != nil {
+			return nil, err
+		}
+		groups = append(groups, g)
+	}
+	return groups, nil
 }

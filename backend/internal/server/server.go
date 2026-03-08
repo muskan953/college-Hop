@@ -124,6 +124,9 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 	// Protected: suggested groups
 	mux.Handle("/groups/suggested", auth.AuthMiddleware(http.HandlerFunc(groupsHandler.SuggestedGroups)))
 
+	// Protected: get all groups the user belongs to
+	mux.Handle("/me/groups", auth.AuthMiddleware(http.HandlerFunc(groupsHandler.GetMyGroups)))
+
 	// Protected: create group
 	mux.Handle("/groups", auth.AuthMiddleware(http.HandlerFunc(groupsHandler.CreateGroup)))
 

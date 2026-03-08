@@ -206,3 +206,6 @@ func (m *MockGroupsRepository) RemoveMember(ctx context.Context, groupID, userID
 func (m *MockGroupsRepository) IsGroupMember(ctx context.Context, groupID, userID string) (bool, error) {
 	return false, nil
 }
+func (m *MockGroupsRepository) GetUserGroups(ctx context.Context, userID string) ([]groups.GroupWithDetails, error) {
+	return []groups.GroupWithDetails{}, nil
+}

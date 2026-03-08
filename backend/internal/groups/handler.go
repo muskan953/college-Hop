@@ -221,6 +221,32 @@ func (h *Handler) SuggestedGroups(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(results)
 }
 
+// GET /me/groups — List all groups the authenticated user belongs to
+func (h *Handler) GetMyGroups(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	groups, err := h.repo.GetUserGroups(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, "failed to get groups", http.StatusInternalServerError)
+		return
+	}
+	if groups == nil {
+		groups = []GroupWithDetails{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(groups)
+}
+
 // GET /groups/{id} — Get a single group with full member profiles
 func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
