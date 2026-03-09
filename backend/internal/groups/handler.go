@@ -2,6 +2,7 @@ package groups
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"sort"
 	"strings"
@@ -94,24 +95,18 @@ func (h *Handler) JoinGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	groupID := parts[1]
 
-	group, err := h.repo.GetGroup(r.Context(), groupID)
-	if err != nil {
+	// Verify the group exists before attempting the atomic join.
+	if _, err := h.repo.GetGroup(r.Context(), groupID); err != nil {
 		http.Error(w, "group not found", http.StatusNotFound)
 		return
 	}
 
-	// Check capacity
-	count, err := h.repo.GetMemberCount(r.Context(), groupID)
-	if err != nil {
-		http.Error(w, "server error", http.StatusInternalServerError)
-		return
-	}
-	if count >= group.MaxMembers {
-		http.Error(w, "group is full", http.StatusBadRequest)
-		return
-	}
-
-	if err := h.repo.JoinGroup(r.Context(), groupID, user.ID); err != nil {
+	// JoinGroupChecked atomically checks capacity and inserts — no race condition.
+	if err := h.repo.JoinGroupChecked(r.Context(), groupID, user.ID); err != nil {
+		if errors.Is(err, ErrGroupFull) {
+			http.Error(w, "group is full", http.StatusBadRequest)
+			return
+		}
 		http.Error(w, "failed to join group", http.StatusInternalServerError)
 		return
 	}
@@ -139,34 +134,36 @@ func (h *Handler) SuggestedGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Get user's interests
+	// 1. Get user's interests (1 query)
 	userInterests, err := h.repo.GetUserInterests(r.Context(), user.ID)
 	if err != nil {
 		http.Error(w, "failed to get user interests", http.StatusInternalServerError)
 		return
 	}
 
-	// 2. Get all groups for this event
-	eventGroups, err := h.repo.GetGroupsForEvent(r.Context(), eventID)
+	// 2. Get all groups for this event WITH member counts (1 query, replaces GetGroupsForEvent + N×GetMemberCount)
+	eventGroups, err := h.repo.GetGroupsWithCountsForEvent(r.Context(), eventID)
 	if err != nil {
 		http.Error(w, "failed to get groups", http.StatusInternalServerError)
 		return
 	}
 
-	// 3. Score each group using strict filtering + Log-Enhanced Jaccard
+	// 3. Get all member interests for every group in one shot (1 query, replaces N×GetGroupMemberInterests)
+	allMemberInterests, err := h.repo.GetGroupMemberInterestsForEvent(r.Context(), eventID)
+	if err != nil {
+		http.Error(w, "failed to get group interests", http.StatusInternalServerError)
+		return
+	}
+
+	// 4. Score each group using strict filtering + Log-Enhanced Jaccard
 	var results []GroupWithDetails
 	for _, g := range eventGroups {
-		memberInterestsList, err := h.repo.GetGroupMemberInterests(r.Context(), g.ID)
-		if err != nil {
+		// Skip full groups (count already embedded in GroupWithDetails)
+		if g.MemberCount >= g.MaxMembers {
 			continue
 		}
 
-		memberCount, _ := h.repo.GetMemberCount(r.Context(), g.ID)
-
-		// Skip full groups
-		if memberCount >= g.MaxMembers {
-			continue
-		}
+		memberInterestsList := allMemberInterests[g.ID] // nil if group has no members with interests
 
 		// Strict filtering: check each member
 		rejected := false
@@ -200,15 +197,13 @@ func (h *Handler) SuggestedGroups(w http.ResponseWriter, r *http.Request) {
 			interests = append(interests, k)
 		}
 
-		results = append(results, GroupWithDetails{
-			Group:       g,
-			MemberCount: memberCount,
-			MatchScore:  avgScore,
-			Interests:   interests,
-		})
+		result := g // copy GroupWithDetails (already has MemberCount)
+		result.MatchScore = avgScore
+		result.Interests = interests
+		results = append(results, result)
 	}
 
-	// 4. Sort by match score descending
+	// 5. Sort by match score descending
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].MatchScore > results[j].MatchScore
 	})

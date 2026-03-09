@@ -6,6 +6,17 @@
 http://localhost:8080
 ```
 
+## Server Configuration
+
+| Environment Variable | Default | Description |
+|---|---|---|
+| `ALLOWED_ORIGIN` | `http://localhost:3000` | The single frontend origin allowed by CORS. Set to your deployed frontend URL in production. |
+| `JWT_SECRET` | — | **Required.** Secret key for signing JWTs. |
+| `ADMIN_SECRET` | — | **Required.** Shared secret for admin endpoints. |
+| `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | — | PostgreSQL connection parameters. |
+| `UPLOAD_DIR` | `./uploads` | Directory for uploaded files. |
+| `UPLOAD_BASE_URL` | — | Public base URL for uploaded file links. |
+
 ---
 
 ## Health Check
@@ -591,7 +602,7 @@ Joins an existing travel group.
 | Status | Description |
 |--------|-------------|
 | `200` | `{"message": "joined group"}` |
-| `400` | Group is full |
+| `400` | Group is full (capacity enforced atomically — no race condition) |
 | `401` | Missing or invalid token |
 | `403` | Account has been blocked |
 | `404` | Group not found |

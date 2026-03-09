@@ -9,8 +9,9 @@ We have implemented a consolidated integration test suite located in the `tests/
 - **Profile**: Create, Get, and Update profiles.
 - **Upload**: File uploads for profile photos.
 - **Events**: List events, create events (auth + validation), set user event.
-- **Groups**: Create groups (auth + validation), join groups (capacity check), suggested groups.
-- **Matching**: Peer matching (scored, sorted, filtered results), Jaccard similarity algorithm.
+- **Groups**: Create groups, join groups (atomic capacity check prevents race conditions), suggested groups.
+- **Matching**: Peer matching (scored, sorted, filtered results via batch queries instead of N+1), Jaccard similarity algorithm.
+- **Security**: Rate limiting (proxy-aware IP extraction) and block enforcement (live DB check returning 403 Forbidden).
 - **Database Repository**: Verifies real SQL queries against a running Postgres database.
 
 ### Prerequisites
@@ -27,6 +28,8 @@ $env:JWT_SECRET="test-secret"; go test ./tests/...
 # Linux/Mac (Bash)
 JWT_SECRET="test-secret" go test ./tests/...
 ```
+
+*Note: For manual frontend testing, make sure to also set the `ALLOWED_ORIGIN` environment variable (defaults to `http://localhost:3000`).*
 
 *Note: The tests automatically connect to the database on port `5433` (as configured in test helpers) to avoid conflicts with other local databases.*
 
@@ -76,6 +79,7 @@ curl -i -X POST http://localhost:8080/auth/verify \
 
 ### Protected Routes
 Use the token received in the previous step as a Bearer token.
+*Note: If a user is blocked by an admin, these routes will return `403 Forbidden` even if the token is valid.*
 
 #### Get My Profile
 ```bash
@@ -199,6 +203,7 @@ curl -i -X POST http://localhost:8080/groups \
 curl -i -X POST http://localhost:8080/groups/<GROUP_ID>/join \
   -H "Authorization: Bearer <TOKEN>"
 ```
+*Note: Capacity is checked atomically using a database transaction lock. Returns `400 Bad Request` if the group is full.*
 
 #### Get Suggested Groups
 ```bash
