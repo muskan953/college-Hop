@@ -22,6 +22,8 @@ type Repository interface {
 	SaveRefreshToken(ctx context.Context, userID string, tokenHash string, expiresAt time.Time) error
 	GetRefreshToken(ctx context.Context, tokenHash string) (string, time.Time, error)
 	DeleteRefreshToken(ctx context.Context, tokenHash string) error
+	// GetUserStatus returns the current status of a user ("pending", "verified", "blocked").
+	GetUserStatus(ctx context.Context, userID string) (string, error)
 }
 
 type PostgresRepository struct {
@@ -196,4 +198,16 @@ func (r *PostgresRepository) UserExists(ctx context.Context, email string) (bool
 		email,
 	).Scan(&exists)
 	return exists, err
+}
+
+func (r *PostgresRepository) GetUserStatus(ctx context.Context, userID string) (string, error) {
+	var status string
+	err := r.db.QueryRowContext(ctx,
+		`SELECT status FROM users WHERE id = $1`,
+		userID,
+	).Scan(&status)
+	if err != nil {
+		return "", err
+	}
+	return status, nil
 }
