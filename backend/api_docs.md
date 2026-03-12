@@ -6,6 +6,17 @@
 http://localhost:8080
 ```
 
+## Server Configuration
+
+| Environment Variable | Default | Description |
+|---|---|---|
+| `ALLOWED_ORIGIN` | `http://localhost:3000` | The single frontend origin allowed by CORS. Set to your deployed frontend URL in production. |
+| `JWT_SECRET` | — | **Required.** Secret key for signing JWTs. |
+| `ADMIN_SECRET` | — | **Required.** Shared secret for admin endpoints. |
+| `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | — | PostgreSQL connection parameters. |
+| `UPLOAD_DIR` | `./uploads` | Directory for uploaded files. |
+| `UPLOAD_BASE_URL` | — | Public base URL for uploaded file links. |
+
 ---
 
 ## Health Check
@@ -25,6 +36,22 @@ OK
 
 ## Authentication
 
+> **Note on blocked accounts**: All protected endpoints (those requiring `Authorization: Bearer`) perform a **live database status check** on every request. If an admin has blocked your account, all protected endpoints will return `403 Forbidden` immediately, even if your access token has not expired yet.
+
+---
+
+### Rate Limiting
+
+All endpoints are subject to a **per-IP rate limit** of **20 requests/second** with a burst of **40**. The server automatically determines the real client IP using the following priority order:
+
+1. `X-Forwarded-For` header (set by reverse proxies like nginx / Render)
+2. `X-Real-IP` header
+3. TCP `RemoteAddr` (with port stripped)
+
+When the limit is exceeded, the server responds with `429 Too Many Requests`.
+
+---
+
 ### `POST /auth/signup`
 
 Sends an OTP to the given email address.
@@ -42,9 +69,9 @@ Sends an OTP to the given email address.
 
 | Status | Body | Description |
 |--------|------|-------------|
-| `200` | `{"message": "OTP sent"}` | OTP generated and logged |
+| `200` | `{"message": "OTP sent"}` | OTP generated and delivered |
 | `400` | `invalid email / personal email domains not allowed` | Email validation failed |
-| `429` | `please wait before requesting another OTP` | Rate limited (1 OTP per minute) |
+| `429` | `please wait before requesting another OTP` | Cooldown active (30 s between requests) |
 
 ---
 
@@ -65,10 +92,10 @@ Sends an OTP to the given email address, but only if the user already exists.
 
 | Status | Body | Description |
 |--------|------|-------------|
-| `200` | `{"message": "OTP sent"}` | OTP generated and logged |
+| `200` | `{"message": "OTP sent"}` | OTP generated and delivered |
 | `400` | `invalid email / personal email domains not allowed` | Email validation failed |
 | `404` | `no account found with this email` | User does not exist |
-| `429` | `please wait before requesting another OTP` | Rate limited (1 OTP per minute) |
+| `429` | `please wait before requesting another OTP` | Cooldown active (30 s between requests) |
 
 ---
 
@@ -169,6 +196,7 @@ Returns the authenticated user's profile including verification status.
 |--------|-------------|
 | `200` | Profile returned |
 | `401` | Missing or invalid token |
+| `403` | Account has been blocked |
 | `404` | Profile not found |
 
 ---
@@ -213,6 +241,7 @@ Creates or updates the authenticated user's profile.
 | `200` | `profile updated` |
 | `400` | Validation error (details in body) |
 | `401` | Missing or invalid token |
+| `403` | Account has been blocked |
 
 ---
 
@@ -400,6 +429,7 @@ Submits a new event for admin approval.
 | `201` | Event created with `status: "pending"` |
 | `400` | Missing required fields or invalid date format |
 | `401` | Missing or invalid token |
+| `403` | Account has been blocked |
 
 ---
 
@@ -424,6 +454,7 @@ Sets the user's currently selected event.
 | `200` | `{"message": "event set"}` |
 | `400` | Missing `event_id` or event not approved |
 | `401` | Missing or invalid token |
+| `403` | Account has been blocked |
 | `404` | Event not found |
 
 ---
@@ -556,6 +587,7 @@ Creates a new travel group for an event. The creator is automatically added as t
 | `201` | Group created |
 | `400` | Missing `name` or `event_id` |
 | `401` | Missing or invalid token |
+| `403` | Account has been blocked |
 
 ---
 
@@ -570,8 +602,9 @@ Joins an existing travel group.
 | Status | Description |
 |--------|-------------|
 | `200` | `{"message": "joined group"}` |
-| `400` | Group is full |
+| `400` | Group is full (capacity enforced atomically — no race condition) |
 | `401` | Missing or invalid token |
+| `403` | Account has been blocked |
 | `404` | Group not found |
 
 ---
@@ -641,6 +674,7 @@ Returns full details about a travel group including its member profiles.
 |--------|-------------|
 | `200` | Group details returned |
 | `401` | Missing or invalid token |
+| `403` | Account has been blocked |
 | `404` | Group not found |
 
 ---
@@ -664,7 +698,7 @@ Updates a group's name and/or description. **Creator only.**
 | `200` | `{"message": "group updated"}` |
 | `400` | Missing `name` |
 | `401` | Missing or invalid token |
-| `403` | Not the group creator |
+| `403` | Not the group creator, or account has been blocked |
 | `404` | Group not found |
 
 ---
@@ -679,7 +713,7 @@ Permanently deletes a group and removes all members. **Creator only.**
 |--------|-------------|
 | `200` | `{"message": "group deleted"}` |
 | `401` | Missing or invalid token |
-| `403` | Not the group creator |
+| `403` | Not the group creator, or account has been blocked |
 | `404` | Group not found |
 
 ---
@@ -695,6 +729,7 @@ Leave a travel group. **Not available to the group creator** (delete the group i
 | `200` | `{"message": "left group"}` |
 | `400` | Creator trying to leave, or user not a member |
 | `401` | Missing or invalid token |
+| `403` | Account has been blocked |
 | `404` | Group not found |
 
 ---
@@ -717,7 +752,7 @@ Remove a member from the group. **Creator only.**
 | `200` | `{"message": "member removed"}` |
 | `400` | Missing `user_id`, user not a member, or creator kicking themselves |
 | `401` | Missing or invalid token |
-| `403` | Not the group creator |
+| `403` | Not the group creator, or account has been blocked |
 | `404` | Group not found |
 
 ---

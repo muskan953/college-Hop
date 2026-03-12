@@ -21,6 +21,7 @@ type MockAuthRepository struct {
 	GetRefreshTokenFunc    func(ctx context.Context, tokenHash string) (string, time.Time, error)
 	DeleteRefreshTokenFunc func(ctx context.Context, tokenHash string) error
 	UserExistsFunc         func(ctx context.Context, email string) (bool, error)
+	GetUserStatusFunc      func(ctx context.Context, userID string) (string, error)
 }
 
 func (m *MockAuthRepository) SaveOTP(ctx context.Context, email string, otpHash string, expiresAt time.Time) error {
@@ -77,6 +78,14 @@ func (m *MockAuthRepository) UserExists(ctx context.Context, email string) (bool
 		return m.UserExistsFunc(ctx, email)
 	}
 	return false, nil
+}
+
+func (m *MockAuthRepository) GetUserStatus(ctx context.Context, userID string) (string, error) {
+	if m.GetUserStatusFunc != nil {
+		return m.GetUserStatusFunc(ctx, userID)
+	}
+	// Default: user is active — existing tests stay green
+	return "verified", nil
 }
 
 // ensure MockProfileRepository implements profile.Repository
@@ -176,11 +185,20 @@ func (m *MockGroupsRepository) GetGroup(ctx context.Context, groupID string) (*g
 func (m *MockGroupsRepository) JoinGroup(ctx context.Context, groupID, userID string) error {
 	return nil
 }
+func (m *MockGroupsRepository) JoinGroupChecked(ctx context.Context, groupID, userID string) error {
+	return nil
+}
 func (m *MockGroupsRepository) GetMemberCount(ctx context.Context, groupID string) (int, error) {
 	return 0, nil
 }
 func (m *MockGroupsRepository) GetGroupsForEvent(ctx context.Context, eventID string) ([]groups.Group, error) {
 	return []groups.Group{}, nil
+}
+func (m *MockGroupsRepository) GetGroupsWithCountsForEvent(ctx context.Context, eventID string) ([]groups.GroupWithDetails, error) {
+	return []groups.GroupWithDetails{}, nil
+}
+func (m *MockGroupsRepository) GetGroupMemberInterestsForEvent(ctx context.Context, eventID string) (map[string][][]string, error) {
+	return map[string][][]string{}, nil
 }
 func (m *MockGroupsRepository) GetGroupMemberInterests(ctx context.Context, groupID string) ([][]string, error) {
 	return [][]string{}, nil

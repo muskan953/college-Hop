@@ -16,6 +16,9 @@ import (
 func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRepo admin.Repository, eventsRepo events.Repository, groupsRepo groups.Repository, store storage.FileStorage, uploadDir string) *http.ServeMux {
 	mux := http.NewServeMux()
 
+	// authMW is the full auth middleware: validates JWT + rejects blocked users.
+	authMW := auth.NewAuthMiddleware(authRepo)
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
@@ -31,7 +34,7 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 
 	profileHandler := profile.NewHandler(profileRepo)
 
-	mux.Handle("/me", auth.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/me", authMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			profileHandler.GetMe(w, r)
 			return
@@ -45,13 +48,13 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 
 	// Upload route (protected by auth)
 	uploadHandler := upload.NewHandler(store)
-	mux.Handle("/upload", auth.AuthMiddleware(http.HandlerFunc(uploadHandler.Upload)))
+	mux.Handle("/upload", authMW(http.HandlerFunc(uploadHandler.Upload)))
 
 	// Serve uploaded files
 	// Profile photos are public
 	mux.Handle("/uploads/profile_photo/", http.StripPrefix("/uploads", upload.ServeFile(uploadDir)))
 	// ID cards are private (require authentication)
-	mux.Handle("/uploads/id_card/", auth.AuthMiddleware(http.StripPrefix("/uploads", upload.ServeFile(uploadDir))))
+	mux.Handle("/uploads/id_card/", authMW(http.StripPrefix("/uploads", upload.ServeFile(uploadDir))))
 
 	// Admin routes (protected by admin secret)
 	adminHandler := admin.NewHandler(adminRepo)
@@ -87,11 +90,11 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 			return
 		}
 		// Protected: create event (any auth user)
-		auth.AuthMiddleware(http.HandlerFunc(eventsHandler.CreateEvent)).ServeHTTP(w, r)
+		authMW(http.HandlerFunc(eventsHandler.CreateEvent)).ServeHTTP(w, r)
 	})
 
 	// Protected: set/get user's selected event
-	mux.Handle("/me/event", auth.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/me/event", authMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPut {
 			eventsHandler.SetUserEvent(w, r)
 			return
@@ -122,16 +125,16 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 	groupsHandler := groups.NewHandler(groupsRepo)
 
 	// Protected: suggested groups
-	mux.Handle("/groups/suggested", auth.AuthMiddleware(http.HandlerFunc(groupsHandler.SuggestedGroups)))
+	mux.Handle("/groups/suggested", authMW(http.HandlerFunc(groupsHandler.SuggestedGroups)))
 
 	// Protected: get all groups the user belongs to
-	mux.Handle("/me/groups", auth.AuthMiddleware(http.HandlerFunc(groupsHandler.GetMyGroups)))
+	mux.Handle("/me/groups", authMW(http.HandlerFunc(groupsHandler.GetMyGroups)))
 
 	// Protected: create group
-	mux.Handle("/groups", auth.AuthMiddleware(http.HandlerFunc(groupsHandler.CreateGroup)))
+	mux.Handle("/groups", authMW(http.HandlerFunc(groupsHandler.CreateGroup)))
 
 	// Protected: group detail, update, delete, join, leave, kick (/groups/{id}/...)
-	mux.Handle("/groups/", auth.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/groups/", authMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		switch {
 		case strings.HasSuffix(path, "/join") && r.Method == http.MethodPost:
@@ -152,7 +155,7 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 	})))
 
 	// Protected: peer matching
-	mux.Handle("/users/matches", auth.AuthMiddleware(http.HandlerFunc(groupsHandler.FindMatches)))
+	mux.Handle("/users/matches", authMW(http.HandlerFunc(groupsHandler.FindMatches)))
 
 	return mux
 }

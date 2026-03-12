@@ -66,10 +66,37 @@ func (rl *RateLimiter) cleanup() {
 	}
 }
 
+// realIP extracts the actual client IP from the request.
+// It checks X-Forwarded-For first (set by reverse proxies like nginx / Render),
+// then X-Real-IP, and finally falls back to stripping the port from RemoteAddr.
+func realIP(r *http.Request) string {
+	// X-Forwarded-For may contain a comma-separated list; the first entry is the client.
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// Take only the first IP in the list
+		for i := 0; i < len(xff); i++ {
+			if xff[i] == ',' {
+				return xff[:i]
+			}
+		}
+		return xff
+	}
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return xri
+	}
+	// Fall back to RemoteAddr — strip the port (e.g. "1.2.3.4:54321" → "1.2.3.4")
+	addr := r.RemoteAddr
+	for i := len(addr) - 1; i >= 0; i-- {
+		if addr[i] == ':' {
+			return addr[:i]
+		}
+	}
+	return addr
+}
+
 // Limit is the middleware handler.
 func (rl *RateLimiter) Limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip := r.RemoteAddr
+		ip := realIP(r)
 
 		limiter := rl.getVisitor(ip)
 		if !limiter.Allow() {

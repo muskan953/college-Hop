@@ -1,17 +1,33 @@
-package groups
+﻿package groups
 
 import (
 	"context"
 	"database/sql"
+	"errors"
 )
+
+// ErrGroupFull is returned by JoinGroupChecked when the group has reached max capacity.
+var ErrGroupFull = errors.New("group is full")
 
 type Repository interface {
 	CreateGroup(ctx context.Context, group *Group) error
 	GetGroup(ctx context.Context, groupID string) (*Group, error)
+	// JoinGroup is a plain insert used internally (e.g. auto-join on create).
 	JoinGroup(ctx context.Context, groupID, userID string) error
+	// JoinGroupChecked atomically checks capacity and joins in one transaction.
+	// Returns ErrGroupFull if the group is already at max capacity.
+	JoinGroupChecked(ctx context.Context, groupID, userID string) error
 	GetMemberCount(ctx context.Context, groupID string) (int, error)
+	// GetGroupsForEvent is kept for backward compatibility; prefer GetGroupsWithCountsForEvent.
 	GetGroupsForEvent(ctx context.Context, eventID string) ([]Group, error)
+	// GetGroupsWithCountsForEvent returns all groups for an event with live member counts
+	// in a single query (replaces GetGroupsForEvent + per-group GetMemberCount).
+	GetGroupsWithCountsForEvent(ctx context.Context, eventID string) ([]GroupWithDetails, error)
+	// GetGroupMemberInterestsForEvent returns all member interest lists for every group in
+	// an event in a single query, keyed by group ID. Replaces the per-group loop.
+	GetGroupMemberInterestsForEvent(ctx context.Context, eventID string) (map[string][][]string, error)
 	GetGroupMemberInterests(ctx context.Context, groupID string) ([][]string, error)
+	// GetUsersForEvent returns users attending an event with their interests in one query.
 	GetUsersForEvent(ctx context.Context, eventID, excludeUserID string) ([]UserWithInterests, error)
 	GetUserInterests(ctx context.Context, userID string) ([]string, error)
 	// Group management
@@ -61,12 +77,55 @@ func (r *PostgresRepository) GetGroup(ctx context.Context, groupID string) (*Gro
 	return &g, nil
 }
 
+// JoinGroup is a plain insert â€” used for the auto-join when creating a group.
 func (r *PostgresRepository) JoinGroup(ctx context.Context, groupID, userID string) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)
 		 ON CONFLICT DO NOTHING`,
 		groupID, userID)
 	return err
+}
+
+// JoinGroupChecked performs an atomic capacity check + insert inside a transaction.
+// It locks the travel_groups row with SELECT FOR UPDATE, counts current members,
+// and only inserts if the group is not yet full.
+func (r *PostgresRepository) JoinGroupChecked(ctx context.Context, groupID, userID string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Lock the group row to prevent concurrent joins from racing past the capacity check.
+	var maxMembers int
+	if err := tx.QueryRowContext(ctx,
+		`SELECT max_members FROM travel_groups WHERE id = $1 FOR UPDATE`,
+		groupID,
+	).Scan(&maxMembers); err != nil {
+		return err
+	}
+
+	var count int
+	if err := tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM group_members WHERE group_id = $1`,
+		groupID,
+	).Scan(&count); err != nil {
+		return err
+	}
+
+	if count >= maxMembers {
+		return ErrGroupFull
+	}
+
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)
+		 ON CONFLICT DO NOTHING`,
+		groupID, userID,
+	)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *PostgresRepository) GetMemberCount(ctx context.Context, groupID string) (int, error) {
@@ -99,6 +158,82 @@ func (r *PostgresRepository) GetGroupsForEvent(ctx context.Context, eventID stri
 	return groups, nil
 }
 
+// GetGroupsWithCountsForEvent returns all groups for an event together with live
+// member counts â€” a single query using a correlated subcount.
+func (r *PostgresRepository) GetGroupsWithCountsForEvent(ctx context.Context, eventID string) ([]GroupWithDetails, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT tg.id, tg.event_id, tg.name, COALESCE(tg.description, ''),
+		        tg.created_by, tg.max_members, tg.created_at,
+		        (SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = tg.id) AS member_count
+		 FROM travel_groups tg
+		 WHERE tg.event_id = $1
+		 ORDER BY tg.created_at DESC`, eventID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var groups []GroupWithDetails
+	for rows.Next() {
+		var g GroupWithDetails
+		if err := rows.Scan(
+			&g.ID, &g.EventID, &g.Name, &g.Description,
+			&g.CreatedBy, &g.MaxMembers, &g.CreatedAt, &g.MemberCount,
+		); err != nil {
+			return nil, err
+		}
+		groups = append(groups, g)
+	}
+	return groups, nil
+}
+
+// GetGroupMemberInterestsForEvent returns member interests for every group in an
+// event in a single query, keyed by group ID as a list-of-per-member-lists.
+// This replaces the per-group GetGroupMemberInterests loop in SuggestedGroups.
+func (r *PostgresRepository) GetGroupMemberInterestsForEvent(ctx context.Context, eventID string) (map[string][][]string, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT gm.group_id, gm.user_id, i.name
+		 FROM group_members gm
+		 JOIN travel_groups tg ON gm.group_id = tg.id
+		 JOIN user_interests ui ON gm.user_id = ui.user_id
+		 JOIN interests i ON ui.interest_id = i.id
+		 WHERE tg.event_id = $1
+		 ORDER BY gm.group_id, gm.user_id`, eventID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// groupID -> memberID -> interests (accumulate per row, then collapse)
+	type memberKey struct{ groupID, userID string }
+	memberInterests := make(map[memberKey][]string)
+	var keys []memberKey // insertion-order dedup
+
+	for rows.Next() {
+		var groupID, userID, interest string
+		if err := rows.Scan(&groupID, &userID, &interest); err != nil {
+			return nil, err
+		}
+		k := memberKey{groupID, userID}
+		if _, exists := memberInterests[k]; !exists {
+			keys = append(keys, k)
+		}
+		memberInterests[k] = append(memberInterests[k], interest)
+	}
+
+	// Collapse to map[groupID][][]string
+	result := make(map[string][][]string)
+	seen := make(map[memberKey]bool)
+	for _, k := range keys {
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		result[k.groupID] = append(result[k.groupID], memberInterests[k])
+	}
+	return result, nil
+}
+
 // GetGroupMemberInterests returns a list of interest lists, one per member
 func (r *PostgresRepository) GetGroupMemberInterests(ctx context.Context, groupID string) ([][]string, error) {
 	rows, err := r.db.QueryContext(ctx,
@@ -129,36 +264,49 @@ func (r *PostgresRepository) GetGroupMemberInterests(ctx context.Context, groupI
 	return result, nil
 }
 
-// GetUsersForEvent returns users attending an event with their interests (for peer matching)
+// GetUsersForEvent returns users attending an event with their interests using a
+// single LEFT JOIN query â€” no more N+1 per-user interest loop.
 func (r *PostgresRepository) GetUsersForEvent(ctx context.Context, eventID, excludeUserID string) ([]UserWithInterests, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT ue.user_id, p.full_name, p.college_name, COALESCE(p.profile_photo_url, '')
+		`SELECT ue.user_id, p.full_name, p.college_name, COALESCE(p.profile_photo_url, ''),
+		        COALESCE(i.name, '')
 		 FROM user_events ue
 		 JOIN profiles p ON ue.user_id = p.user_id
-		 WHERE ue.event_id = $1 AND ue.user_id != $2`, eventID, excludeUserID)
+		 LEFT JOIN user_interests ui ON ue.user_id = ui.user_id
+		 LEFT JOIN interests i ON ui.interest_id = i.id
+		 WHERE ue.event_id = $1 AND ue.user_id != $2
+		 ORDER BY ue.user_id`, eventID, excludeUserID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var users []UserWithInterests
+	var order []string
+	usersMap := make(map[string]*UserWithInterests)
+
 	for rows.Next() {
-		var u UserWithInterests
-		if err := rows.Scan(&u.UserID, &u.FullName, &u.CollegeName, &u.ProfilePhotoURL); err != nil {
+		var userID, fullName, collegeName, photoURL, interest string
+		if err := rows.Scan(&userID, &fullName, &collegeName, &photoURL, &interest); err != nil {
 			return nil, err
 		}
-		users = append(users, u)
-	}
-
-	// Fetch interests for each user
-	for i := range users {
-		interests, err := r.GetUserInterests(ctx, users[i].UserID)
-		if err != nil {
-			return nil, err
+		if _, exists := usersMap[userID]; !exists {
+			order = append(order, userID)
+			usersMap[userID] = &UserWithInterests{
+				UserID:          userID,
+				FullName:        fullName,
+				CollegeName:     collegeName,
+				ProfilePhotoURL: photoURL,
+			}
 		}
-		users[i].Interests = interests
+		if interest != "" {
+			usersMap[userID].Interests = append(usersMap[userID].Interests, interest)
+		}
 	}
 
+	users := make([]UserWithInterests, 0, len(order))
+	for _, id := range order {
+		users = append(users, *usersMap[id])
+	}
 	return users, nil
 }
 
