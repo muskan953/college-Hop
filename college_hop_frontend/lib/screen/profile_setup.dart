@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:college_hop/mainn_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,7 +7,7 @@ import 'package:college_hop/providers/auth_provider.dart';
 import 'package:college_hop/providers/signup_provider.dart';
 import 'package:college_hop/services/api_service.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
-import 'package:college_hop/screen/main_screen.dart';
+
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -274,7 +275,7 @@ class _ProfileSetupScreenState
                                     TextButton(
                                       onPressed: () {
                                         Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(builder: (context) => const MainScreen()),
+                              MaterialPageRoute(builder: (context) => const MainnScreen()),
                               (route) => false,
                             );
                                       },

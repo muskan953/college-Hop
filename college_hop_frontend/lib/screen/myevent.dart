@@ -1,19 +1,23 @@
+import 'package:college_hop/screen/new_event_submission.dart';
+import 'package:college_hop/screen/notification_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:college_hop/providers/auth_provider.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 import 'package:college_hop/screen/welcome_screen.dart';
+import 'package:college_hop/screen/connect_profile_screen.dart';
 
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+
+class MyEvent extends StatefulWidget {
+  const MyEvent({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  State<MyEvent> createState() => _MyEventState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MyEventState extends State<MyEvent> {
   int _currentIndex = 0;
-
+ 
   // Mock data
   final String _selectedEvent = "Hackathon @ IIT Delhi";
   final String _selectedEventDate = "March 12";
@@ -69,11 +73,18 @@ class _MainScreenState extends State<MainScreen> {
 
     return AppScaffold(
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        heroTag: "my_event_fab",
+        onPressed: () {
+          print("FAB Clicked!");
+           Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const SubmitEventScreen(),
+                                ),
+                              );
+        },
         backgroundColor: theme.colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
-      bottomNavigationBar: _buildBottomNav(theme),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -132,7 +143,13 @@ class _MainScreenState extends State<MainScreen> {
           Stack(
             children: [
               IconButton(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const NotificationsScreen(),
+                          ),
+                        );
+                },
                 icon: Icon(
                   Icons.notifications_outlined,
                   color: theme.colorScheme.onSurface,
@@ -234,7 +251,13 @@ class _MainScreenState extends State<MainScreen> {
             const SizedBox(height: 10),
             // Add new event
             GestureDetector(
-              onTap: () {},
+              onTap: () {
+                Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const SubmitEventScreen(),
+                                ),
+                              );
+              },
               child: Row(
                 children: [
                   Icon(
@@ -408,7 +431,9 @@ class _MainScreenState extends State<MainScreen> {
             width: double.infinity,
             height: 36,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.colorScheme.primary,
                 foregroundColor: Colors.white,
@@ -444,8 +469,19 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildMatchCard(ThemeData theme, Map<String, dynamic> match) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Container(
-        padding: const EdgeInsets.all(16),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          if (match['name'] == 'Priya Sharma') {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const ConnectProfileScreen(),
+              ),
+            );
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
@@ -542,7 +578,15 @@ class _MainScreenState extends State<MainScreen> {
             ),
             // Connect button
             IconButton(
-              onPressed: () {},
+              onPressed: () {
+                if (match['name'] == 'Priya Sharma') {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const ConnectProfileScreen(),
+                    ),
+                  );
+                }
+              },
               icon: Icon(
                 Icons.person_add_outlined,
                 color: theme.colorScheme.primary,
@@ -552,71 +596,6 @@ class _MainScreenState extends State<MainScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  // ==========  BOTTOM NAV  ==========
-  Widget _buildBottomNav(ThemeData theme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: theme.colorScheme.surface,
-        selectedItemColor: theme.colorScheme.primary,
-        unselectedItemColor: theme.colorScheme.onSurface.withOpacity(0.4),
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-        elevation: 0,
-        items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: "My Event",
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.groups_outlined),
-            activeIcon: Icon(Icons.groups),
-            label: "Groups",
-          ),
-          BottomNavigationBarItem(
-            icon: Stack(
-              children: [
-                const Icon(Icons.chat_bubble_outline),
-                Positioned(
-                  right: -2,
-                  top: -2,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            activeIcon: const Icon(Icons.chat_bubble),
-            label: "Messages",
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: "Profile",
-          ),
-        ],
-      ),
-    );
+    ),);
   }
 }

@@ -20,26 +20,51 @@ class AppScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final gradientColors = [
-      theme.colorScheme.primary.withOpacity(0.05),
-      theme.scaffoldBackgroundColor,
-    ];
-
     return Scaffold(
       appBar: appBar,
-      floatingActionButton: floatingActionButton,
-      floatingActionButtonLocation: floatingActionButtonLocation,
+      // FIX: If the passed FAB doesn't have a heroTag, we give it a unique one
+      // to prevent the "Multiple Heroes" crash during navigation.
+      floatingActionButton: _buildFab(),
+      floatingActionButtonLocation:
+          floatingActionButtonLocation ?? FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: bottomNavigationBar,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: gradientColors,
+      extendBody: false,
+      body: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  theme.colorScheme.primary.withOpacity(0.05),
+                  theme.scaffoldBackgroundColor,
+                ],
+              ),
+            ),
           ),
-        ),
-        child: body,
+          // Note: AppScaffold handles SafeArea, so remove it from your 
+          // screen-level widgets to avoid double padding!
+          SafeArea(
+            child: body,
+          ),
+        ],
       ),
     );
+  }
+
+  Widget? _buildFab() {
+    if (floatingActionButton is FloatingActionButton) {
+      final fab = floatingActionButton as FloatingActionButton;
+      // If no tag is manually set, we use a unique one per scaffold instance
+      return FloatingActionButton(
+        key: fab.key,
+        onPressed: fab.onPressed,
+        heroTag: fab.heroTag ?? UniqueKey(), 
+        backgroundColor: fab.backgroundColor,
+        child: fab.child,
+      );
+    }
+    return floatingActionButton;
   }
 }

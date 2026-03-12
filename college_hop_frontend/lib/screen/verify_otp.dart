@@ -1,8 +1,8 @@
 import 'dart:async';
+import 'package:college_hop/mainn_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:college_hop/providers/auth_provider.dart';
-import 'package:college_hop/screen/main_screen.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 
 class VerifyOtpScreen extends StatefulWidget {
@@ -201,7 +201,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
 
                           if (success) {
                             Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(builder: (context) => const MainScreen()),
+                              MaterialPageRoute(builder: (context) => const MainnScreen()),
                               (route) => false,
                             );
                           } else {

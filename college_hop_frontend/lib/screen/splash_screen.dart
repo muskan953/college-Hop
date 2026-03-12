@@ -1,7 +1,7 @@
+import 'package:college_hop/mainn_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:college_hop/providers/auth_provider.dart';
-import 'package:college_hop/screen/main_screen.dart';
 import 'welcome_screen.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 
@@ -60,7 +60,7 @@ class _SplashScreenState extends State<SplashScreen>
     if (auth.isAuthenticated) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const MainScreen()),
+        MaterialPageRoute(builder: (context) => const MainnScreen()),
       );
     } else {
       Navigator.pushReplacement(
