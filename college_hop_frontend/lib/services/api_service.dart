@@ -56,6 +56,29 @@ class ApiService {
     );
   }
 
+  static Future<http.Response> getPreferences(String token) async {
+    final url = Uri.parse("$baseUrl/me/preferences");
+    return await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+  }
+
+  static Future<http.Response> updatePreferences(String token, Map<String, dynamic> prefsData) async {
+    final url = Uri.parse("$baseUrl/me/preferences");
+    return await http.put(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(prefsData),
+    );
+  }
+
   static Future<http.Response> refreshToken(String refreshToken) async {
     final url = Uri.parse("$baseUrl/auth/refresh");
     return await http.post(
@@ -71,6 +94,28 @@ class ApiService {
       url,
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"refresh_token": refreshToken}),
+    );
+  }
+
+  static Future<http.Response> getUserEvents(String token) async {
+    final url = Uri.parse("$baseUrl/me/events");
+    return await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+  }
+
+  static Future<http.Response> getUserGroups(String token) async {
+    final url = Uri.parse("$baseUrl/me/groups");
+    return await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
     );
   }
 

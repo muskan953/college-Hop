@@ -253,3 +253,30 @@ func (h *Handler) GetUserEvent(w http.ResponseWriter, r *http.Request) {
 		"status": ue.Status,
 	})
 }
+
+// GET /me/events — Get a list of all events the user has selected
+func (h *Handler) GetUserEvents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	events, err := h.repo.GetUserEvents(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, "failed to get user events", http.StatusInternalServerError)
+		return
+	}
+
+	if events == nil {
+		events = []UserEventDetails{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(events)
+}

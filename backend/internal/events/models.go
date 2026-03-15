@@ -46,3 +46,9 @@ type SetEventRequest struct {
 	EventID string `json:"event_id"`
 	Status  string `json:"status"`
 }
+
+// UserEventDetails combines the Event and the user's attendance status
+type UserEventDetails struct {
+	Event
+	UserStatus string `json:"user_status"` // The status from user_events (e.g. interested, going)
+}

@@ -3,6 +3,9 @@ import 'package:college_hop/theme/app_scaffold.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:typed_data';
+import 'package:provider/provider.dart';
+import 'package:college_hop/providers/auth_provider.dart';
+import 'package:college_hop/providers/profile_provider.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -13,49 +16,62 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
 
-  final nameController = TextEditingController(text: "Arjun Mehta");
-  final locationController = TextEditingController(text: "Delhi, India");
+  final nameController = TextEditingController();
+  final locationController = TextEditingController();
   final bioController = TextEditingController();
-  final universityController =
-      TextEditingController(text: "Indian Institute of Technology Delhi");
-  final majorController =
-      TextEditingController(text: "Computer Science & Engineering");
- 
+  final universityController = TextEditingController();
+  final majorController = TextEditingController();
+
+  // ID Card Upload state
+  String? _uploadedIdCardUrl; // set once upload succeeds
+  bool _idCardUploaded = false; // unlocks expiration date field
+  String? _uploadedPhotoUrl;   // set after photo upload
+
   Uint8List? profileImageBytes;
- final ImagePicker picker = ImagePicker();
- 
- Future<void> pickProfileImage() async {
-  final XFile? image =
-      await picker.pickImage(source: ImageSource.gallery);
+  final ImagePicker picker = ImagePicker();
 
-  if (image != null) {
-    final bytes = await image.readAsBytes();
-
-    setState(() {
-      profileImageBytes = bytes;
+  @override
+  void initState() {
+    super.initState();
+    // Pre-fill controllers with existing profile data
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final profile = context.read<ProfileProvider>().profileData;
+      if (profile != null) {
+        nameController.text = (profile['full_name'] as String?) ?? '';
+        locationController.text = (profile['location'] as String?) ?? '';
+        bioController.text = (profile['bio'] as String?) ?? '';
+        universityController.text = (profile['college_name'] as String?) ?? '';
+        majorController.text = (profile['major'] as String?) ?? '';
+        expirationDate = (profile['id_expiration'] as String?) ?? 'Not set';
+        selectedInterests = List<String>.from((profile['interests'] as List?) ?? []);
+        setState(() {});
+      }
     });
   }
-}
-  String expirationDate = "June 11, 2027";
- 
+
+  Future<void> pickProfileImage() async {
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      final bytes = await image.readAsBytes();
+      setState(() => profileImageBytes = bytes);
+      // Upload immediately
+      final token = context.read<AuthProvider>().accessToken;
+      if (token != null) {
+        final url = await context.read<ProfileProvider>().uploadProfilePhoto(
+          token: token,
+          filePath: image.path,
+          fileName: image.name,
+        );
+        if (url != null) {
+          setState(() => _uploadedPhotoUrl = url);
+        }
+      }
+    }
+  }
+
+  String expirationDate = 'Not set';
   TextEditingController newExpirationController = TextEditingController();
-  PlatformFile? selectedPdf; 
-
-  List<String> interests = [
-    "Programming",
-    "Design",
-    "Startups",
-    "Gaming",
-    "Music",
-    "Reading",
-    "Movies"
-  ];
-
-  List<String> selectedInterests = [
-    "Programming",
-    "Startups",
-    "Gaming"
-  ];
+  PlatformFile? selectedPdf;
 
   Future<void> pickPDF() async {
 
@@ -68,6 +84,42 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() {
         selectedPdf = result.files.first;
       });
+    }
+  }
+
+  final List<String> interests = [
+    "Programming", "Design", "Startups", "Gaming",
+    "Music", "Reading", "Movies", "Travel", "Sports",
+    "Photography", "Food", "Art",
+  ];
+
+  List<String> selectedInterests = [];
+
+  Future<void> _saveProfile() async {
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) return;
+
+    final profileProvider = context.read<ProfileProvider>();
+    final existing = profileProvider.profileData;
+
+    final success = await profileProvider.updateProfile(token, {
+      'full_name': nameController.text.trim(),
+      'college_name': universityController.text.trim(),
+      'major': majorController.text.trim(),
+      'roll_number': existing?['roll_number'] ?? '',
+      'id_expiration': expirationDate == 'Not set' ? (existing?['id_expiration'] ?? '') : expirationDate,
+      'bio': bioController.text.trim(),
+      'profile_photo_url': _uploadedPhotoUrl ?? existing?['profile_photo_url'] ?? '',
+      'college_id_card_url': _uploadedIdCardUrl ?? existing?['college_id_card_url'] ?? '',
+      'alternate_email': existing?['alternate_email'] ?? '',
+      'interests': selectedInterests,
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(success ? 'Profile updated!' : 'Failed to save. Try again.')),
+      );
+      if (success) Navigator.pop(context);
     }
   }
 
@@ -103,9 +155,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
 
                 TextButton(
-                  onPressed: () {},
-                  child: const Text("Save"),
-                )
+          onPressed: _saveProfile,
+          child: const Text("Save"),
+        )
               ],
             ),
 
@@ -119,20 +171,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         onTap: pickProfileImage,
         child: CircleAvatar(
           radius: 42,
-  backgroundColor: theme.colorScheme.primary,
-  backgroundImage: profileImageBytes != null
-      ? MemoryImage(profileImageBytes!)
-      : null,
-  child: profileImageBytes == null
-      ? const Text(
-          "AM",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-          ),
-        )
-      : null,
+          backgroundColor: theme.colorScheme.primary,
+          backgroundImage: profileImageBytes != null
+              ? MemoryImage(profileImageBytes!) as ImageProvider
+              : (_uploadedPhotoUrl != null && _uploadedPhotoUrl!.isNotEmpty
+                  ? NetworkImage(_uploadedPhotoUrl!) as ImageProvider
+                  : null),
+          child: (profileImageBytes == null && (_uploadedPhotoUrl == null || _uploadedPhotoUrl!.isEmpty))
+              ? Text(
+                  nameController.text.isNotEmpty
+                      ? nameController.text.trim().split(' ').map((e) => e[0]).take(2).join()
+                      : 'ME',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+              : null,
         ),
       ),
 
@@ -601,7 +657,7 @@ TextField(
 
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
 
                               if (selectedPdf == null) {
                                 ScaffoldMessenger.of(context)
@@ -613,11 +669,40 @@ TextField(
                                 );
                                 return;
                               }
-                                 if (newExpirationController.text.isNotEmpty) {
-    setState(() {
-      expirationDate = newExpirationController.text;
-    });
-  }
+
+                              // Upload the ID card
+                              final token = context.read<AuthProvider>().accessToken;
+                              if (token != null && selectedPdf!.path != null) {
+                                final url = await context.read<ProfileProvider>().uploadIdCard(
+                                  token: token,
+                                  filePath: selectedPdf!.path!,
+                                  fileName: selectedPdf!.name,
+                                );
+                                if (url != null) {
+                                  setState(() {
+                                    _uploadedIdCardUrl = url;
+                                    _idCardUploaded = true;
+                                    if (newExpirationController.text.isNotEmpty) {
+                                      expirationDate = newExpirationController.text;
+                                    }
+                                  });
+                                  // ignore: use_build_context_synchronously
+                                  Navigator.pop(context);
+                                  return;
+                                } else {
+                                  // ignore: use_build_context_synchronously
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Upload failed. Please try again.')),
+                                  );
+                                  return;
+                                }
+                              }
+
+                              if (newExpirationController.text.isNotEmpty) {
+                                setState(() {
+                                  expirationDate = newExpirationController.text;
+                                });
+                              }
                               Navigator.pop(context);
                             },
                             child: const Text("Confirm & Update"),

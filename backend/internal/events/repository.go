@@ -14,6 +14,7 @@ type Repository interface {
 	GetEvent(ctx context.Context, eventID string) (*Event, error)
 	SetUserEvent(ctx context.Context, userID, eventID, status string) error
 	GetUserEvent(ctx context.Context, userID string) (*UserEvent, error)
+	GetUserEvents(ctx context.Context, userID string) ([]UserEventDetails, error)
 }
 
 type PostgresRepository struct {
@@ -170,4 +171,67 @@ func (r *PostgresRepository) GetUserEvent(ctx context.Context, userID string) (*
 		return nil, err
 	}
 	return &ue, nil
+}
+
+func (r *PostgresRepository) GetUserEvents(ctx context.Context, userID string) ([]UserEventDetails, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT
+			e.id, e.name, e.category, e.venue, e.organizer,
+			e.start_date, e.end_date, e.time_description,
+			e.event_link, e.brochure_url, e.ticket_link,
+			e.status, e.created_at,
+			ue.status as user_status
+		 FROM events e
+		 JOIN user_events ue ON e.id = ue.event_id
+		 WHERE ue.user_id = $1
+		 ORDER BY ue.created_at DESC`,
+		userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []UserEventDetails
+	for rows.Next() {
+		var e UserEventDetails
+		var (
+			category        sql.NullString
+			endDate         sql.NullTime
+			timeDescription sql.NullString
+			eventLink       sql.NullString
+			brochureURL     sql.NullString
+			ticketLink      sql.NullString
+		)
+		err := rows.Scan(
+			&e.ID, &e.Name, &category, &e.Venue, &e.Organizer,
+			&e.StartDate, &endDate, &timeDescription,
+			&eventLink, &brochureURL, &ticketLink,
+			&e.Status, &e.CreatedAt,
+			&e.UserStatus,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if category.Valid {
+			e.Category = category.String
+		}
+		if endDate.Valid {
+			t := endDate.Time
+			e.EndDate = &t
+		}
+		if timeDescription.Valid {
+			e.TimeDescription = timeDescription.String
+		}
+		if eventLink.Valid {
+			e.EventLink = eventLink.String
+		}
+		if brochureURL.Valid {
+			e.BrochureURL = brochureURL.String
+		}
+		if ticketLink.Valid {
+			e.TicketLink = ticketLink.String
+		}
+		events = append(events, e)
+	}
+	return events, nil
 }

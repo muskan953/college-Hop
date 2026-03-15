@@ -16,6 +16,7 @@ class AuthProvider with ChangeNotifier {
   Future<void> get initialized => _initCompleter.future;
 
   String? get accessToken => _accessToken;
+  String? get email => _email;
   bool get isAuthenticated => _accessToken != null;
 
   AuthProvider() {

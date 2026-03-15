@@ -4,6 +4,7 @@ import 'package:college_hop/theme/theme.dart';
 import 'package:college_hop/screen/splash_screen.dart';
 import 'package:college_hop/providers/auth_provider.dart';
 import 'package:college_hop/providers/signup_provider.dart';
+import 'package:college_hop/providers/profile_provider.dart';
 
 
 void main() {
@@ -12,6 +13,7 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => SignUpProvider()),
+        ChangeNotifierProvider(create: (_) => ProfileProvider()),
       ],
       child: const MyApp(),
     ),

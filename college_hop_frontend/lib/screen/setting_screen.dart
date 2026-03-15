@@ -2,6 +2,9 @@ import 'package:college_hop/screen/account_info.dart';
 import 'package:college_hop/screen/verify_student_id.dart';
 import 'package:flutter/material.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
+import 'package:provider/provider.dart';
+import 'package:college_hop/providers/auth_provider.dart';
+import 'package:college_hop/providers/profile_provider.dart';
 import 'help_screen.dart';
 import 'legal_info_screen.dart';
 
@@ -19,6 +22,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool emailNotifications = true;
   bool newMatchAlerts = true;
   bool messageAlerts = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load preferences from provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final prefs = context.read<ProfileProvider>().preferencesData;
+      if (prefs != null) {
+        setState(() {
+          showLocation = (prefs['show_location'] as bool?) ?? true;
+          pushNotifications = (prefs['push_notifications'] as bool?) ?? true;
+          emailNotifications = (prefs['email_notifications'] as bool?) ?? true;
+          newMatchAlerts = (prefs['new_match_alerts'] as bool?) ?? true;
+          messageAlerts = (prefs['message_alerts'] as bool?) ?? true;
+        });
+      } else {
+        // Fetch preferences from backend if not already loaded
+        final token = context.read<AuthProvider>().accessToken;
+        if (token != null) {
+          context.read<ProfileProvider>().fetchPreferences(token).then((_) {
+            final fetchedPrefs = context.read<ProfileProvider>().preferencesData;
+            if (fetchedPrefs != null && mounted) {
+              setState(() {
+                showLocation = (fetchedPrefs['show_location'] as bool?) ?? true;
+                pushNotifications = (fetchedPrefs['push_notifications'] as bool?) ?? true;
+                emailNotifications = (fetchedPrefs['email_notifications'] as bool?) ?? true;
+                newMatchAlerts = (fetchedPrefs['new_match_alerts'] as bool?) ?? true;
+                messageAlerts = (fetchedPrefs['message_alerts'] as bool?) ?? true;
+              });
+            }
+          });
+        }
+      }
+    });
+  }
+
+  void _persistPreference(String key, bool value) {
+    final token = context.read<AuthProvider>().accessToken;
+    if (token != null) {
+      context.read<ProfileProvider>().updatePreferences(token, {key: value});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,9 +157,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: "Display city on profile",
               value: showLocation,
               onChanged: (value) {
-                setState(() {
-                  showLocation = value;
-                });
+                setState(() => showLocation = value);
+                _persistPreference('show_location', value);
               },
             ),
 
@@ -130,9 +174,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: "Receive push notifications",
               value: pushNotifications,
               onChanged: (value) {
-                setState(() {
-                  pushNotifications = value;
-                });
+                setState(() => pushNotifications = value);
+                _persistPreference('push_notifications', value);
               },
             ),
 
@@ -143,9 +186,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: "Receive email updates",
               value: emailNotifications,
               onChanged: (value) {
-                setState(() {
-                  emailNotifications = value;
-                });
+                setState(() => emailNotifications = value);
+                _persistPreference('email_notifications', value);
               },
             ),
 
@@ -156,9 +198,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: "Get notified about new matches",
               value: newMatchAlerts,
               onChanged: (value) {
-                setState(() {
-                  newMatchAlerts = value;
-                });
+                setState(() => newMatchAlerts = value);
+                _persistPreference('new_match_alerts', value);
               },
             ),
 
@@ -169,9 +210,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: "Get notified about messages",
               value: messageAlerts,
               onChanged: (value) {
-                setState(() {
-                  messageAlerts = value;
-                });
+                setState(() => messageAlerts = value);
+                _persistPreference('message_alerts', value);
               },
             ),
 

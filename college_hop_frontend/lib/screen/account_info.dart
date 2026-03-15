@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
-import 'package:college_hop/providers/signup_provider.dart';
+import 'package:college_hop/providers/auth_provider.dart';
+import 'package:college_hop/providers/profile_provider.dart';
 
 class AccountInformationScreen extends StatefulWidget {
   const AccountInformationScreen({super.key});
@@ -12,10 +13,14 @@ class AccountInformationScreen extends StatefulWidget {
 
 class _AccountInformationScreenState extends State<AccountInformationScreen> {
 
-  String alternateEmail = "arjun.personal@gmail.com";
+  // Alternate email is loaded from the backend profile data
+  String get _alternateEmail {
+    final profile = context.read<ProfileProvider>().profileData;
+    return (profile?['alternate_email'] as String?) ?? '';
+  }
 
   void _showChangeEmailDialog() {
-    final controller = TextEditingController(text: alternateEmail);
+    final controller = TextEditingController(text: _alternateEmail);
 
     showDialog(
       context: context,
@@ -37,17 +42,30 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
             child: const Text("Cancel"),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final newEmail = controller.text.trim();
               if (newEmail.isNotEmpty && newEmail.contains('@')) {
-                setState(() => alternateEmail = newEmail);
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Alternate email updated successfully!"),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                // Persist alternate email to backend
+                final token = context.read<AuthProvider>().accessToken;
+                final profileProvider = context.read<ProfileProvider>();
+                final existing = profileProvider.profileData;
+                if (token != null && existing != null) {
+                  await profileProvider.updateProfile(token, {
+                    ...existing,
+                    'alternate_email': newEmail,
+                    'interests': List<String>.from(existing['interests'] ?? []),
+                  });
+                }
+                setState(() {}); // rebuild to show new alternate email
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Alternate email updated successfully!"),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
               } else {
                 ScaffoldMessenger.of(ctx).showSnackBar(
                   const SnackBar(
@@ -68,9 +86,11 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
   Widget build(BuildContext context) {
 
     final theme = Theme.of(context);
-    final signUp = context.watch<SignUpProvider>();
-
-    final primaryEmail = signUp.email.isNotEmpty ? signUp.email : "arjun.mehta@iitd.ac.in";
+    // Use the email saved at login time; fall back to what the profile API returns
+    final auth = context.read<AuthProvider>();
+    final profileEmail = (context.read<ProfileProvider>().profileData?['email'] as String?);
+    final primaryEmail = auth.email ?? profileEmail ?? '';
+    final alternateEmail = _alternateEmail;
 
     return AppScaffold(
       body: SafeArea(

@@ -17,6 +17,7 @@ services:
       UPLOAD_DIR: /app/uploads
       UPLOAD_BASE_URL: http://localhost:8080/uploads
       ADMIN_SECRET: change-me-in-production
+      ALLOWED_ORIGIN: "*"
     volumes:
       - ./uploads:/app/uploads
 

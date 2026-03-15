@@ -49,6 +49,7 @@ func (h *Handler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	req.Major = strings.TrimSpace(req.Major)
 	req.RollNumber = strings.TrimSpace(req.RollNumber)
 	req.Bio = strings.TrimSpace(req.Bio)
+	req.AlternateEmail = strings.TrimSpace(req.AlternateEmail)
 
 	// Validation
 	if req.FullName == "" || req.CollegeName == "" || req.Major == "" || req.RollNumber == "" {
@@ -129,4 +130,56 @@ func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(profile)
+}
+
+func (h *Handler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req UpdatePreferencesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate profile_visibility
+	req.ProfileVisibility = strings.TrimSpace(req.ProfileVisibility)
+	if req.ProfileVisibility == "" {
+		req.ProfileVisibility = "public"
+	}
+	allowed := map[string]bool{"public": true, "connections": true, "private": true}
+	if !allowed[req.ProfileVisibility] {
+		http.Error(w, "profile_visibility must be one of: public, connections, private", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.repo.UpsertPreferences(r.Context(), user.ID, req); err != nil {
+		http.Error(w, "failed to update preferences", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("preferences updated"))
+}
+
+func (h *Handler) GetPreferences(w http.ResponseWriter, r *http.Request) {
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	prefs, err := h.repo.GetPreferences(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, "failed to get preferences", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(prefs)
 }

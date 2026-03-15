@@ -46,6 +46,18 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	})))
 
+	mux.Handle("/me/preferences", authMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			profileHandler.GetPreferences(w, r)
+			return
+		}
+		if r.Method == http.MethodPut {
+			profileHandler.UpdatePreferences(w, r)
+			return
+		}
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	})))
+
 	// Upload route (protected by auth)
 	uploadHandler := upload.NewHandler(store)
 	mux.Handle("/upload", authMW(http.HandlerFunc(uploadHandler.Upload)))
@@ -105,6 +117,9 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 		}
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	})))
+
+	// Protected: get all user events
+	mux.Handle("/me/events", authMW(http.HandlerFunc(eventsHandler.GetUserEvents)))
 
 	// Admin: pending events + approve/reject
 	mux.Handle("/admin/events/pending", admin.AdminAuth(http.HandlerFunc(eventsHandler.ListPendingEvents)))
