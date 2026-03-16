@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'screen/home_screen.dart';
 import 'screen/myevent.dart';
 import 'screen/groups_screen.dart';
 import 'screen/messages_screen.dart';
@@ -17,7 +18,7 @@ class _MainnScreenState extends State<MainnScreen> {
   int _currentIndex = 0;
 
   late final List<Widget> _screens = [
-    const MyEvent(),
+    const DefaultMainScreen(),
     const GroupsScreen(),
     const MessagesScreen(),
     const ProfileScreen(),

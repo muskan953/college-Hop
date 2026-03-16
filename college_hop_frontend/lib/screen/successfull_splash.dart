@@ -102,7 +102,7 @@ class _VerificationSuccessScreenState
                         boxShadow: [
                           BoxShadow(
                             color: theme.colorScheme.primary
-                                .withOpacity(0.4),
+                                .withValues(alpha: 0.4),
                             blurRadius: 20,
                             spreadRadius: 2,
                           ),
@@ -163,3 +163,4 @@ class _VerificationSuccessScreenState
     );
   }
 }
+

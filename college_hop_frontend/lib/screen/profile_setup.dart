@@ -159,7 +159,7 @@ class _ProfileSetupScreenState
                   filled: true,
                   fillColor: theme
                       .colorScheme.surfaceVariant
-                      .withOpacity(0.8),
+                      .withValues(alpha: 0.8),
                   border: OutlineInputBorder(
                     borderRadius:
                         BorderRadius.circular(12),
@@ -180,7 +180,7 @@ class _ProfileSetupScreenState
                   filled: true,
                   fillColor: theme
                       .colorScheme.surfaceVariant
-                      .withOpacity(0.8),
+                      .withValues(alpha: 0.8),
                   border: OutlineInputBorder(
                     borderRadius:
                         BorderRadius.circular(12),
@@ -322,3 +322,4 @@ class _ProfileSetupScreenState
     );
   }
 }
+

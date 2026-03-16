@@ -110,11 +110,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     hintText: "jane@university.edu",
                      hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                     ),
                     filled: true,
                     fillColor:
-                        theme.colorScheme.surfaceVariant.withOpacity(0.8),
+                        theme.colorScheme.surfaceVariant.withValues(alpha: 0.8),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -229,3 +229,4 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
+

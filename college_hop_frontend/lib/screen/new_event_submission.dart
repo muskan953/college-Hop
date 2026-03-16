@@ -119,7 +119,7 @@ class _SubmitEventScreenState extends State<SubmitEventScreen> {
                   label: "Organizer Name",
                   hint: "e.g., College Events Inc.",
                    hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                     ),
                   
                 ),
@@ -133,7 +133,7 @@ class _SubmitEventScreenState extends State<SubmitEventScreen> {
                   label: "Event Name",
                   hint: "e.g., Hackathon @ IIT Delhi",
                    hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                     ),
                 ),
 
@@ -168,7 +168,7 @@ class _SubmitEventScreenState extends State<SubmitEventScreen> {
                   label: "Venue",
                   hint: "Venue name",
                    hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                     ),
                   icon: Icons.location_on_outlined,
                 ),
@@ -207,7 +207,7 @@ class _SubmitEventScreenState extends State<SubmitEventScreen> {
                   label: "Time",
                   hint: "e.g., 6:00 PM - 11:00 PM",
                    hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                     ),
                   icon: Icons.access_time,
                 ),
@@ -227,7 +227,7 @@ class _SubmitEventScreenState extends State<SubmitEventScreen> {
                       color: colors.surface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                          color: colors.outline.withOpacity(0.2)),
+                          color: colors.outline.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       children: [
@@ -258,7 +258,7 @@ class _SubmitEventScreenState extends State<SubmitEventScreen> {
                   label: "Official Event Link",
                   hint: "https://event-website.com",
                    hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                     ),
                   icon: Icons.link,
                 ),
@@ -272,7 +272,7 @@ class _SubmitEventScreenState extends State<SubmitEventScreen> {
                   label: "Ticket Purchase Link (Optional)",
                   hint: "https://tickets.com",
                    hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                     ),
                   icon: Icons.link,
                 ),
@@ -283,7 +283,7 @@ class _SubmitEventScreenState extends State<SubmitEventScreen> {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: colors.primary.withOpacity(0.08),
+                    color: colors.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -342,11 +342,11 @@ class _SubmitEventScreenState extends State<SubmitEventScreen> {
       fillColor: colors.surface,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colors.outline.withOpacity(0.2)),
+        borderSide: BorderSide(color: colors.outline.withValues(alpha: 0.2)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colors.outline.withOpacity(0.2)),
+        borderSide: BorderSide(color: colors.outline.withValues(alpha: 0.2)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -414,7 +414,7 @@ class _SubmitEventScreenState extends State<SubmitEventScreen> {
             decoration: BoxDecoration(
               color: colors.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: colors.outline.withOpacity(0.2)),
+              border: Border.all(color: colors.outline.withValues(alpha: 0.2)),
             ),
             child: Row(
               children: [

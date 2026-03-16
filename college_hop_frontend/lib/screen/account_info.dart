@@ -131,7 +131,7 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
                 color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: theme.colorScheme.outline.withOpacity(.15),
+                  color: theme.colorScheme.outline.withValues(alpha: .15),
                 ),
               ),
               child: Column(
@@ -143,7 +143,7 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(.15),
+                          color: Colors.blue.withValues(alpha: .15),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.mail_outline, color: Colors.blue),
@@ -160,7 +160,7 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
                             "Used for login and verification",
                             style: TextStyle(
                               fontSize: 11,
-                              color: theme.colorScheme.onSurface.withOpacity(.5),
+                              color: theme.colorScheme.onSurface.withValues(alpha: .5),
                             ),
                           ),
                         ],
@@ -172,7 +172,7 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.onSurface.withOpacity(.04),
+                      color: theme.colorScheme.onSurface.withValues(alpha: .04),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -181,7 +181,7 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
                         Text(
                           primaryEmail,
                           style: TextStyle(
-                            color: theme.colorScheme.onSurface.withOpacity(.8),
+                            color: theme.colorScheme.onSurface.withValues(alpha: .8),
                             fontSize: 13,
                           ),
                         ),
@@ -211,7 +211,7 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
                 color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: theme.colorScheme.outline.withOpacity(.15),
+                  color: theme.colorScheme.outline.withValues(alpha: .15),
                 ),
               ),
               child: Column(
@@ -223,7 +223,7 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(.15),
+                          color: Colors.orange.withValues(alpha: .15),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.alternate_email, color: Colors.orange),
@@ -235,7 +235,7 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
                           const Text("Alternate Email", style: TextStyle(fontWeight: FontWeight.w600)),
                           Text(
                             "Backup for account recovery",
-                            style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(.5)),
+                            style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: .5)),
                           ),
                         ],
                       ),
@@ -247,12 +247,12 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.onSurface.withOpacity(.04),
+                      color: theme.colorScheme.onSurface.withValues(alpha: .04),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       alternateEmail,
-                      style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(.8), fontSize: 13),
+                      style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: .8), fontSize: 13),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -273,10 +273,10 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(.08),
+                color: Colors.blue.withValues(alpha: .08),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: Colors.blue.withOpacity(.25),
+                  color: Colors.blue.withValues(alpha: .25),
                 ),
               ),
               child: Column(
@@ -319,4 +319,5 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
     );
   }
 }
+
 

@@ -199,7 +199,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Text(
           "Tap to change photo",
           style: TextStyle(
-            color: Colors.white.withOpacity(.6),
+            color: Colors.white.withValues(alpha: .6),
           ),
         ),
       ),
@@ -255,7 +255,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                     selectedColor: theme.colorScheme.primary,
 
-                    backgroundColor: Colors.white.withOpacity(.08),
+                    backgroundColor: Colors.white.withValues(alpha: .08),
 
                     labelStyle: TextStyle(
                       color:
@@ -300,13 +300,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Colors.white.withOpacity(.08),
-            Colors.white.withOpacity(.04),
+            Colors.white.withValues(alpha: .08),
+            Colors.white.withValues(alpha: .04),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withOpacity(.08),
+          color: Colors.white.withValues(alpha: .08),
         ),
       ),
       child: Column(
@@ -349,7 +349,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(.65),
+              color: Colors.white.withValues(alpha: .65),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -364,7 +364,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             decoration: InputDecoration(
               filled: true,
-              fillColor: Colors.white.withOpacity(.08),
+              fillColor: Colors.white.withValues(alpha: .08),
 
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -373,7 +373,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: Colors.white.withOpacity(.15),
+                  color: Colors.white.withValues(alpha: .15),
                 ),
               ),
 
@@ -421,10 +421,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             padding: const EdgeInsets.symmetric(
                 horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(.08),
+              color: Colors.white.withValues(alpha: .08),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.white.withOpacity(.12),
+                color: Colors.white.withValues(alpha: .12),
               ),
             ),
             child: Row(
@@ -434,7 +434,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   child: Text(
                     expirationDate,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(.75),
+                      color: Colors.white.withValues(alpha: .75),
                     ),
                   ),
                 ),
@@ -451,7 +451,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           "Changing this requires uploading a new student ID",
           style: TextStyle(
             fontSize: 12,
-            color: Colors.white.withOpacity(.6),
+            color: Colors.white.withValues(alpha: .6),
           ),
         ),
       ],
@@ -485,7 +485,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: Colors.white.withOpacity(.08),
+                  color: Colors.white.withValues(alpha: .08),
                 ),
               ),
               child: SingleChildScrollView(
@@ -506,7 +506,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     Text(
                       "Upload a new student ID to update expiration date.",
                       style: TextStyle(
-                        color: Colors.white.withOpacity(.7),
+                        color: Colors.white.withValues(alpha: .7),
                         fontSize: 13,
                       ),
                     ),
@@ -517,7 +517,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       "Current Expiration Date",
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.white.withOpacity(.7),
+                        color: Colors.white.withValues(alpha: .7),
                       ),
                     ),
 
@@ -526,7 +526,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(.08),
+                        color: Colors.white.withValues(alpha: .08),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(expirationDate),
@@ -537,7 +537,7 @@ Text(
   "New Expiration Date",
   style: TextStyle(
     fontSize: 12,
-    color: Colors.white.withOpacity(.7),
+    color: Colors.white.withValues(alpha: .7),
   ),
 ),
 
@@ -550,14 +550,14 @@ TextField(
     hintText: "Enter new expiration date",
     hintStyle: TextStyle(color: Colors.grey.shade600),
     filled: true,
-    fillColor: Colors.white.withOpacity(.08),
+    fillColor: Colors.white.withValues(alpha: .08),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
       borderSide: BorderSide(
-        color: Colors.white.withOpacity(.15),
+        color: Colors.white.withValues(alpha: .15),
       ),
     ),
     focusedBorder: OutlineInputBorder(
@@ -579,7 +579,7 @@ TextField(
                       "Upload New Student ID (PDF)",
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.white.withOpacity(.7),
+                        color: Colors.white.withValues(alpha: .7),
                       ),
                     ),
 
@@ -607,7 +607,7 @@ TextField(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: Colors.white.withOpacity(.15),
+                            color: Colors.white.withValues(alpha: .15),
                           ),
                         ),
                         child: Center(

@@ -130,7 +130,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         height: 45,
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: colors.primary.withOpacity(0.05),
+          color: colors.primary.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(12),
         ),
         child: TabBar(
@@ -140,7 +140,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             borderRadius: BorderRadius.circular(8),
           ),
           labelColor: colors.primary,
-          unselectedLabelColor: colors.onSurface.withOpacity(0.5),
+          unselectedLabelColor: colors.onSurface.withValues(alpha: 0.5),
           labelStyle:
               const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           indicatorSize: TabBarIndicatorSize.tab,
@@ -187,7 +187,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.notifications_none,
-              size: 60, color: theme.colorScheme.primary.withOpacity(0.2)),
+              size: 60, color: theme.colorScheme.primary.withValues(alpha: 0.2)),
           const SizedBox(height: 10),
           const Text("All caught up!",
               style: TextStyle(fontWeight: FontWeight.bold)),
@@ -226,7 +226,7 @@ class _NotificationCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.outline.withOpacity(0.15)),
+        border: Border.all(color: colors.outline.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,12 +260,12 @@ class _NotificationCard extends StatelessWidget {
                     Text(
                       message,
                       style: theme.textTheme.bodySmall?.copyWith(
-                          color: colors.onSurface.withOpacity(0.6)),
+                          color: colors.onSurface.withValues(alpha: 0.6)),
                     ),
                     const SizedBox(height: 6),
                     Text(time,
                         style: theme.textTheme.labelSmall?.copyWith(
-                            color: colors.onSurface.withOpacity(0.4))),
+                            color: colors.onSurface.withValues(alpha: 0.4))),
                   ],
                 ),
               ),
@@ -308,7 +308,7 @@ class _NotificationCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration:
-          BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+          BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
       child: Icon(icon, color: color, size: 18),
     );
   }
@@ -336,7 +336,7 @@ class _NotificationCard extends StatelessWidget {
       child: OutlinedButton(
         onPressed: () {},
         style: OutlinedButton.styleFrom(
-          side: BorderSide(color: colors.outline.withOpacity(0.3)),
+          side: BorderSide(color: colors.outline.withValues(alpha: 0.3)),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),

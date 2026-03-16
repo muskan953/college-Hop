@@ -76,3 +76,4 @@ class SignUpProvider with ChangeNotifier {
     notifyListeners();
   }
 }
+

@@ -19,8 +19,8 @@ class _MyEventState extends State<MyEvent> {
   int _currentIndex = 0;
  
   // Mock data
-  final String _selectedEvent = "Hackathon @ IIT Delhi";
-  final String _selectedEventDate = "March 12";
+  String _selectedEvent = "Hackathon @ IIT Delhi";
+  String _selectedEventDate = "March 12";
 
   final List<Map<String, dynamic>> _travelGroups = [
     {
@@ -185,11 +185,11 @@ class _MyEventState extends State<MyEvent> {
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: theme.colorScheme.outline.withOpacity(0.15),
+            color: theme.colorScheme.outline.withValues(alpha: 0.15),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -202,7 +202,7 @@ class _MyEventState extends State<MyEvent> {
             Text(
               "SELECTED EVENT",
               style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.5),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.8,
               ),
@@ -220,30 +220,33 @@ class _MyEventState extends State<MyEvent> {
                     ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        "Change",
-                        style: TextStyle(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                GestureDetector(
+                  onTap: () => _showSelectEventSheet(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "Change",
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 2),
-                      Icon(
-                        Icons.keyboard_arrow_down,
-                        size: 18,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ],
+                        const SizedBox(width: 2),
+                        Icon(
+                          Icons.keyboard_arrow_down,
+                          size: 18,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -334,11 +337,11 @@ class _MyEventState extends State<MyEvent> {
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: theme.colorScheme.outline.withOpacity(0.15),
+          color: theme.colorScheme.outline.withValues(alpha: 0.15),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -353,20 +356,20 @@ class _MyEventState extends State<MyEvent> {
               Icon(
                 Icons.people_outline,
                 size: 18,
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
               const SizedBox(width: 4),
               Text(
                 "${group['students']} students",
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2A9D8F).withOpacity(0.15),
+                  color: const Color(0xFF2A9D8F).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -395,7 +398,7 @@ class _MyEventState extends State<MyEvent> {
           Text(
             "SHARED INTERESTS",
             style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.4),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
               letterSpacing: 0.6,
               fontSize: 10,
             ),
@@ -412,7 +415,7 @@ class _MyEventState extends State<MyEvent> {
                   color: theme.colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: theme.colorScheme.outline.withOpacity(0.25),
+                    color: theme.colorScheme.outline.withValues(alpha: 0.25),
                   ),
                 ),
                 child: Text(
@@ -486,11 +489,11 @@ class _MyEventState extends State<MyEvent> {
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: theme.colorScheme.outline.withOpacity(0.15),
+            color: theme.colorScheme.outline.withValues(alpha: 0.15),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -502,7 +505,7 @@ class _MyEventState extends State<MyEvent> {
             // Avatar
             CircleAvatar(
               radius: 22,
-              backgroundColor: (match['color'] as Color).withOpacity(0.15),
+              backgroundColor: (match['color'] as Color).withValues(alpha: 0.15),
               child: Text(
                 match['name'].substring(0, 1),
                 style: TextStyle(
@@ -528,7 +531,7 @@ class _MyEventState extends State<MyEvent> {
                   Text(
                     match['college'],
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.5),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -560,13 +563,13 @@ class _MyEventState extends State<MyEvent> {
                           color: theme.colorScheme.surface,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: theme.colorScheme.outline.withOpacity(0.25),
+                            color: theme.colorScheme.outline.withValues(alpha: 0.25),
                           ),
                         ),
                         child: Text(
                           interest,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.65),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -598,4 +601,318 @@ class _MyEventState extends State<MyEvent> {
       ),
     ),);
   }
+  // ==========  SELECT EVENT BOTTOM SHEET  ==========
+  void _showSelectEventSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SelectEventSheet(
+        onEventSelected: (name, date) {
+          setState(() {
+            _selectedEvent = name;
+            _selectedEventDate = date;
+          });
+        },
+      ),
+    );
+  }
 }
+
+// ============================================================
+//  SELECT EVENT SHEET  (separate StatefulWidget)
+// ============================================================
+class _SelectEventSheet extends StatefulWidget {
+  final void Function(String name, String date) onEventSelected;
+  const _SelectEventSheet({required this.onEventSelected});
+
+  @override
+  State<_SelectEventSheet> createState() => _SelectEventSheetState();
+}
+
+class _SelectEventSheetState extends State<_SelectEventSheet> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _selectedCategory = 'All';
+  String _selectedDate = 'Any Time';
+  String _query = '';
+
+  final List<String> _categories = [
+    'All', 'Music Festival', 'Sports', 'Tech', 'Culture',
+  ];
+
+  final List<String> _dateFilters = [
+    'Any Time', 'This Week', 'This Month', 'Next Month',
+  ];
+
+  final List<Map<String, String>> _allEvents = [
+    {'name': 'Hackathon @ IIT Delhi', 'date': 'March 12', 'category': 'Tech'},
+    {'name': 'TechCrunch Disrupt', 'date': 'March 20', 'category': 'Tech'},
+    {'name': 'Coachella Music Festival', 'date': 'April 15', 'category': 'Music Festival'},
+    {'name': 'NCAA Finals @ Miami', 'date': 'April 8', 'category': 'Sports'},
+    {'name': 'Cultural Fest @ JNU', 'date': 'April 22', 'category': 'Culture'},
+    {'name': 'Hackathon @ IIT Bombay', 'date': 'May 3', 'category': 'Tech'},
+    {'name': 'Open Mic Night', 'date': 'March 30', 'category': 'Music Festival'},
+  ];
+
+  List<Map<String, String>> get _filtered {
+    return _allEvents.where((e) {
+      final matchQuery = _query.isEmpty ||
+          e['name']!.toLowerCase().contains(_query.toLowerCase());
+      final matchCat = _selectedCategory == 'All' || e['category'] == _selectedCategory;
+      return matchQuery && matchCat;
+    }).toList();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final mq = MediaQuery.of(context);
+
+    return Container(
+      height: mq.size.height * 0.82,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ---------- drag handle ----------
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // ---------- header ----------
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 8, 4),
+            child: Row(
+              children: [
+                Text(
+                  'Select Event',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: Icon(
+                    Icons.close,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // ---------- search bar ----------
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (v) => setState(() => _query = v),
+              decoration: InputDecoration(
+                hintText: 'Search events...',
+                hintStyle: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  fontSize: 14,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  size: 20,
+                ),
+                suffixIcon: Icon(
+                  Icons.tune,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  size: 20,
+                ),
+                filled: true,
+                fillColor: theme.colorScheme.surfaceVariant.withValues(alpha: 0.5),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          // ---------- CATEGORY label ----------
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+            child: Text(
+              'CATEGORY',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ),
+          // ---------- category chips ----------
+          SizedBox(
+            height: 36,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _categories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final cat = _categories[i];
+                final selected = cat == _selectedCategory;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedCategory = cat),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.surfaceVariant.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      cat,
+                      style: TextStyle(
+                        color: selected
+                            ? Colors.white
+                            : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          // ---------- DATE label ----------
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            child: Text(
+              'DATE',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ),
+          // ---------- date chips ----------
+          SizedBox(
+            height: 36,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _dateFilters.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final d = _dateFilters[i];
+                final selected = d == _selectedDate;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedDate = d),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.surfaceVariant.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      d,
+                      style: TextStyle(
+                        color: selected
+                            ? Colors.white
+                            : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 14),
+          // ---------- event list ----------
+          Expanded(
+            child: _filtered.isEmpty
+                ? Center(
+                    child: Text(
+                      'No events found',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    itemCount: _filtered.length,
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      color: theme.colorScheme.outline.withValues(alpha: 0.1),
+                    ),
+                    itemBuilder: (_, i) {
+                      final event = _filtered[i];
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 6),
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.event_outlined,
+                            color: theme.colorScheme.primary,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          event['name']!,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          event['date']!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                        ),
+                        onTap: () {
+                          widget.onEventSelected(
+                              event['name']!, event['date']!);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

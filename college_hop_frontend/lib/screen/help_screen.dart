@@ -165,7 +165,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                 gradient: LinearGradient(
                   colors: [
                     theme.colorScheme.primary,
-                    theme.colorScheme.primary.withOpacity(.8),
+                    theme.colorScheme.primary.withValues(alpha: .8),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(18),
@@ -232,7 +232,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: theme.colorScheme.outline.withOpacity(.15),
+          color: theme.colorScheme.outline.withValues(alpha: .15),
         ),
       ),
       child: ListTile(
@@ -253,7 +253,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: theme.colorScheme.outline.withOpacity(.15),
+          color: theme.colorScheme.outline.withValues(alpha: .15),
         ),
       ),
       child: ExpansionTile(

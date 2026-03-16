@@ -80,7 +80,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
             // Name and Uni
             const Text("Priya Sharma", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text("MIT", style: TextStyle(color: textTheme.bodyMedium?.color?.withOpacity(0.6))),
+            Text("MIT", style: TextStyle(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.6))),
             
             const SizedBox(height: 24),
 
@@ -92,7 +92,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                 Container(
                   height: 30,
                   width: 1,
-                  color: textTheme.bodyMedium?.color?.withOpacity(0.1),
+                  color: textTheme.bodyMedium?.color?.withValues(alpha: 0.1),
                   margin: const EdgeInsets.symmetric(horizontal: 24),
                 ),
                 _buildStatItem(Icons.people, colorScheme.primary, "5 mutual\nconnections", textTheme),
@@ -107,13 +107,13 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                 borderRadius: BorderRadius.circular(32),
                 gradient: LinearGradient(
                   colors: [
-                    colorScheme.primary.withOpacity(0.15),
-                    colorScheme.primary.withOpacity(0.03),
+                    colorScheme.primary.withValues(alpha: 0.15),
+                    colorScheme.primary.withValues(alpha: 0.03),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                border: Border.all(color: colorScheme.primary.withOpacity(0.1)),
+                border: Border.all(color: colorScheme.primary.withValues(alpha: 0.1)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,7 +123,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                   const SizedBox(height: 12),
                   Text(
                     "Passionate about AI/ML, and building products that make a difference. Always down for hackathons and tech meetups. Love exploring new cities and meeting fellow tech enthusiasts!",
-                    style: TextStyle(color: textTheme.bodyMedium?.color?.withOpacity(0.7), height: 1.5),
+                    style: TextStyle(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.7), height: 1.5),
                   ),
                   
                   const SizedBox(height: 24),
@@ -149,16 +149,16 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                   ),
                   
                   const SizedBox(height: 20),
-                  Text("OTHER INTERESTS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textTheme.bodyMedium?.color?.withOpacity(0.5))),
+                  Text("OTHER INTERESTS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _buildChip("Hackathons", textTheme.bodyMedium?.color?.withOpacity(0.6) ?? Colors.grey, false),
-                      _buildChip("Photography", textTheme.bodyMedium?.color?.withOpacity(0.6) ?? Colors.grey, false),
-                      _buildChip("Travel", textTheme.bodyMedium?.color?.withOpacity(0.6) ?? Colors.grey, false),
-                      _buildChip("Coffee", textTheme.bodyMedium?.color?.withOpacity(0.6) ?? Colors.grey, false),
+                      _buildChip("Hackathons", textTheme.bodyMedium?.color?.withValues(alpha: 0.6) ?? Colors.grey, false),
+                      _buildChip("Photography", textTheme.bodyMedium?.color?.withValues(alpha: 0.6) ?? Colors.grey, false),
+                      _buildChip("Travel", textTheme.bodyMedium?.color?.withValues(alpha: 0.6) ?? Colors.grey, false),
+                      _buildChip("Coffee", textTheme.bodyMedium?.color?.withValues(alpha: 0.6) ?? Colors.grey, false),
                     ],
                   ),
 
@@ -182,14 +182,14 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: colorScheme.primary.withOpacity(0.05),
-                  border: Border.all(color: colorScheme.primary.withOpacity(0.2)),
+                  color: colorScheme.primary.withValues(alpha: 0.05),
+                  border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
                   _sentMessage!,
                   style: TextStyle(
-                    color: textTheme.bodyMedium?.color?.withOpacity(0.9),
+                    color: textTheme.bodyMedium?.color?.withValues(alpha: 0.9),
                     fontSize: 14,
                     height: 1.5,
                   ),
@@ -204,10 +204,10 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         decoration: BoxDecoration(
           color: theme.scaffoldBackgroundColor,
-          border: Border(top: BorderSide(color: textTheme.bodyMedium?.color?.withOpacity(0.05) ?? Colors.transparent)),
+          border: Border(top: BorderSide(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.05) ?? Colors.transparent)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),
@@ -247,12 +247,12 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
               const SizedBox(width: 12),
               Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: textTheme.bodyMedium?.color?.withOpacity(0.1) ?? Colors.grey.shade300),
+                  border: Border.all(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.1) ?? Colors.grey.shade300),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: Icon(Icons.close, color: textTheme.bodyMedium?.color?.withOpacity(0.6)),
+                  icon: Icon(Icons.close, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.6)),
                   padding: const EdgeInsets.all(12),
                 ),
               ),
@@ -268,7 +268,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
       children: [
         Icon(icon, color: iconColor, size: 18),
         const SizedBox(width: 8),
-        Text(text, style: TextStyle(fontSize: 12, color: textTheme.bodyMedium?.color?.withOpacity(0.8))),
+        Text(text, style: TextStyle(fontSize: 12, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.8))),
       ],
     );
   }
@@ -291,7 +291,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
+              color: iconColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: iconColor, size: 20),
@@ -302,7 +302,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
             children: [
               Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
               const SizedBox(height: 2),
-              Text(subtitle, style: TextStyle(fontSize: 12, color: textTheme.bodyMedium?.color?.withOpacity(0.5))),
+              Text(subtitle, style: TextStyle(fontSize: 12, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
             ],
           ),
         ],
@@ -314,8 +314,8 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: isShared ? color.withOpacity(0.05) : Colors.transparent,
-        border: Border.all(color: color.withOpacity(isShared ? 0.3 : 0.2)),
+        color: isShared ? color.withValues(alpha: 0.05) : Colors.transparent,
+        border: Border.all(color: color.withValues(alpha: isShared ? 0.3 : 0.2)),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -334,8 +334,8 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: textTheme.bodyMedium?.color?.withOpacity(0.02),
-        border: Border.all(color: textTheme.bodyMedium?.color?.withOpacity(0.05) ?? Colors.transparent),
+        color: textTheme.bodyMedium?.color?.withValues(alpha: 0.02),
+        border: Border.all(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.05) ?? Colors.transparent),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -349,7 +349,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                 Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 if (date != null) ...[
                   const SizedBox(height: 2),
-                  Text(date, style: TextStyle(fontSize: 12, color: textTheme.bodyMedium?.color?.withOpacity(0.5))),
+                  Text(date, style: TextStyle(fontSize: 12, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
                 ],
               ],
             ),
@@ -358,7 +358,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
+                color: Colors.green.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Text(
@@ -399,12 +399,12 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                     children: [
                       const Text("Send a message", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      Text("Introduce yourself to Priya Sharma", style: TextStyle(fontSize: 14, color: textTheme.bodyMedium?.color?.withOpacity(0.6))),
+                      Text("Introduce yourself to Priya Sharma", style: TextStyle(fontSize: 14, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.6))),
                     ],
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: Icon(Icons.close, color: textTheme.bodyMedium?.color?.withOpacity(0.6)),
+                    icon: Icon(Icons.close, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.6)),
                   ),
                 ],
               ),
@@ -413,7 +413,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                 children: [
                    Icon(Icons.bolt, color: colorScheme.primary, size: 16),
                    const SizedBox(width: 4),
-                   Text("QUICK TEMPLATES", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textTheme.bodyMedium?.color?.withOpacity(0.5))),
+                   Text("QUICK TEMPLATES", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
                 ],
               ),
               const SizedBox(height: 12),
@@ -421,12 +421,12 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
               _buildTemplateCard("Hi! I noticed we share a lot of interests. Would love to coordinate travel plans!", textTheme, colorScheme),
               _buildTemplateCard("Hey Priya! Let's connect and figure out travel details together.", textTheme, colorScheme),
               const SizedBox(height: 24),
-              Text("OR WRITE YOUR OWN", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textTheme.bodyMedium?.color?.withOpacity(0.5))),
+              Text("OR WRITE YOUR OWN", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
               const SizedBox(height: 12),
               Container(
                 decoration: BoxDecoration(
-                  color: textTheme.bodyMedium?.color?.withOpacity(0.02),
-                  border: Border.all(color: textTheme.bodyMedium?.color?.withOpacity(0.1) ?? Colors.grey.shade300),
+                  color: textTheme.bodyMedium?.color?.withValues(alpha: 0.02),
+                  border: Border.all(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.1) ?? Colors.grey.shade300),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: TextField(
@@ -434,14 +434,14 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                   maxLines: 4,
                   decoration: InputDecoration(
                     hintText: "Type your message here...",
-                    hintStyle: TextStyle(color: textTheme.bodyMedium?.color?.withOpacity(0.4), fontSize: 14),
+                    hintStyle: TextStyle(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.4), fontSize: 14),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.all(16),
                   ),
                 ),
               ),
               const SizedBox(height: 8),
-              Text("0/500 characters", style: TextStyle(fontSize: 11, color: textTheme.bodyMedium?.color?.withOpacity(0.4))),
+              Text("0/500 characters", style: TextStyle(fontSize: 11, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.4))),
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -451,7 +451,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        side: BorderSide(color: textTheme.bodyMedium?.color?.withOpacity(0.1) ?? Colors.grey.shade300),
+                        side: BorderSide(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.1) ?? Colors.grey.shade300),
                       ),
                       child: Text("Skip for now", style: TextStyle(color: textTheme.bodyMedium?.color, fontSize: 14, fontWeight: FontWeight.w600)),
                     ),
@@ -496,12 +496,13 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: textTheme.bodyMedium?.color?.withOpacity(0.02),
-          border: Border.all(color: textTheme.bodyMedium?.color?.withOpacity(0.1) ?? Colors.grey.shade300),
+          color: textTheme.bodyMedium?.color?.withValues(alpha: 0.02),
+          border: Border.all(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.1) ?? Colors.grey.shade300),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Text(text, style: TextStyle(fontSize: 13, color: textTheme.bodyMedium?.color?.withOpacity(0.8), height: 1.4)),
+        child: Text(text, style: TextStyle(fontSize: 13, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.8), height: 1.4)),
       ),
     );
   }
 }
+

@@ -56,10 +56,10 @@ class _VerifyStudentIDScreenState extends State<VerifyStudentIDScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(.12),
+                color: Colors.green.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: Colors.green.withOpacity(.4),
+                  color: Colors.green.withValues(alpha: .4),
                 ),
               ),
               child: Row(
@@ -117,7 +117,7 @@ class _VerifyStudentIDScreenState extends State<VerifyStudentIDScreen> {
                 color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: theme.colorScheme.outline.withOpacity(.15),
+                  color: theme.colorScheme.outline.withValues(alpha: .15),
                 ),
               ),
               child: Row(
@@ -135,7 +135,7 @@ class _VerifyStudentIDScreenState extends State<VerifyStudentIDScreen> {
                     "Uploaded Jan 15, 2025",
                     style: TextStyle(
                       fontSize: 12,
-                      color: theme.colorScheme.onSurface.withOpacity(.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha: .6),
                     ),
                   )
                 ],
@@ -160,7 +160,7 @@ class _VerifyStudentIDScreenState extends State<VerifyStudentIDScreen> {
                 color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: theme.colorScheme.outline.withOpacity(.15),
+                  color: theme.colorScheme.outline.withValues(alpha: .15),
                 ),
               ),
               child: Column(
@@ -195,7 +195,7 @@ class _VerifyStudentIDScreenState extends State<VerifyStudentIDScreen> {
                         : "Tap to browse",
                     style: TextStyle(
                       fontSize: 12,
-                      color: theme.colorScheme.onSurface.withOpacity(.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha: .6),
                     ),
                   ),
 
@@ -250,7 +250,7 @@ class _VerifyStudentIDScreenState extends State<VerifyStudentIDScreen> {
                     "Supports PDF only (Max 5MB)",
                     style: TextStyle(
                       fontSize: 11,
-                      color: theme.colorScheme.onSurface.withOpacity(.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha: .6),
                     ),
                   ),
                 ],
@@ -263,10 +263,10 @@ class _VerifyStudentIDScreenState extends State<VerifyStudentIDScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(.08),
+                color: Colors.blue.withValues(alpha: .08),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: Colors.blue.withOpacity(.3),
+                  color: Colors.blue.withValues(alpha: .3),
                 ),
               ),
               child: Column(

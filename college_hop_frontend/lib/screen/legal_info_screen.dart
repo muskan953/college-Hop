@@ -47,10 +47,10 @@ class LegalInformationScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(4), // Padding around the indicator
                 decoration: BoxDecoration(
                   // We use a semi-transparent overlay instead of solid surface
-                  color: theme.colorScheme.onSurface.withOpacity(0.05),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: theme.colorScheme.outline.withOpacity(0.1),
+                    color: theme.colorScheme.outline.withValues(alpha: 0.1),
                   ),
                 ),
                 child: TabBar(
@@ -62,14 +62,14 @@ class LegalInformationScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: [
                       BoxShadow(
-                        color: theme.colorScheme.primary.withOpacity(0.3),
+                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
                   labelColor: Colors.white,
-                  unselectedLabelColor: theme.colorScheme.onSurface.withOpacity(0.7),
+                  unselectedLabelColor: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
                   tabs: const [
@@ -150,7 +150,7 @@ class TermsOfServiceTab extends StatelessWidget {
     color: theme.colorScheme.surface,
     borderRadius: BorderRadius.circular(12),
     border: Border.all(
-      color: theme.colorScheme.outline.withOpacity(.15),
+      color: theme.colorScheme.outline.withValues(alpha: .15),
     ),
   ),
   child: Column(
@@ -171,7 +171,7 @@ class TermsOfServiceTab extends StatelessWidget {
           Text(
             "Contact us at ",
             style: TextStyle(
-              color: theme.colorScheme.onSurface.withOpacity(0.6),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               fontSize: 13,
             ),
           ),
@@ -253,7 +253,7 @@ class PrivacyPolicyTab extends StatelessWidget {
     color: theme.colorScheme.surface,
     borderRadius: BorderRadius.circular(12),
     border: Border.all(
-      color: theme.colorScheme.outline.withOpacity(.15),
+      color: theme.colorScheme.outline.withValues(alpha: .15),
     ),
   ),
   child: Column(
@@ -274,7 +274,7 @@ class PrivacyPolicyTab extends StatelessWidget {
           Text(
             "Contact us at ",
             style: TextStyle(
-              color: theme.colorScheme.onSurface.withOpacity(0.6),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               fontSize: 13,
             ),
           ),
@@ -310,7 +310,7 @@ Widget _section(ThemeData theme, String title, String content) {
       color: theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(12),
       border: Border.all(
-        color: theme.colorScheme.outline.withOpacity(.15),
+        color: theme.colorScheme.outline.withValues(alpha: .15),
       ),
     ),
     child: Column(
@@ -332,7 +332,7 @@ Widget _section(ThemeData theme, String title, String content) {
         Text(
           content,
           style: TextStyle(
-            color: theme.colorScheme.onSurface.withOpacity(0.65),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
             fontSize: 13,
             height: 1.5,
           ),

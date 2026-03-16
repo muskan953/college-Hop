@@ -255,10 +255,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             Container(
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.05),
+                color: Colors.red.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: Colors.red.withOpacity(0.2),
+                  color: Colors.red.withValues(alpha: 0.2),
                 ),
               ),
               child: ListTile(
@@ -281,7 +281,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Text(
                 "College Hop v1.0.0",
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.5),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
             )
@@ -298,7 +298,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Text(
         title,
         style: theme.textTheme.labelMedium?.copyWith(
-          color: theme.colorScheme.onSurface.withOpacity(0.6),
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
           fontWeight: FontWeight.bold,
           letterSpacing: 0.8,
         ),
@@ -320,7 +320,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: theme.colorScheme.outline.withOpacity(0.15),
+          color: theme.colorScheme.outline.withValues(alpha: 0.15),
         ),
       ),
       child: ListTile(
@@ -349,11 +349,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       color: theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(18),
       border: Border.all(
-        color: theme.colorScheme.outline.withOpacity(.15),
+        color: theme.colorScheme.outline.withValues(alpha: .15),
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(.04),
+          color: Colors.black.withValues(alpha: .04),
           blurRadius: 6,
           offset: const Offset(0, 2),
         )
@@ -378,7 +378,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Text(
                 subtitle,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(.6),
+                  color: theme.colorScheme.onSurface.withValues(alpha: .6),
                 ),
               ),
             ],

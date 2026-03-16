@@ -221,9 +221,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -254,7 +254,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         Text(val, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.primary)),
         const SizedBox(height: 4),
-        Text(label, style: TextStyle(color: textTheme.bodyMedium?.color?.withOpacity(0.5), fontSize: 11, fontWeight: FontWeight.w600)),
+        Text(label, style: TextStyle(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5), fontSize: 11, fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -262,7 +262,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildTabSwitcher(ColorScheme colorScheme, TextTheme textTheme) {
     return Container(
       decoration: BoxDecoration(
-        color: textTheme.bodyMedium?.color?.withOpacity(0.04),
+        color: textTheme.bodyMedium?.color?.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(24),
       ),
       padding: const EdgeInsets.all(4),
@@ -291,7 +291,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: active ? Colors.white : textTheme.bodyMedium?.color?.withOpacity(0.5),
+              color: active ? Colors.white : textTheme.bodyMedium?.color?.withValues(alpha: 0.5),
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
@@ -327,7 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 12),
         Text(
           bio.isNotEmpty ? bio : 'No bio added yet.',
-          style: TextStyle(color: textTheme.bodyMedium?.color?.withOpacity(0.7), height: 1.5, fontSize: 13),
+          style: TextStyle(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.7), height: 1.5, fontSize: 13),
         ),
 
         const SizedBox(height: 24),
@@ -363,7 +363,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 runSpacing: 8,
                 children: interests.map((tag) => _buildChip(tag, colorScheme)).toList(),
               )
-            : Text('No interests added yet.', style: TextStyle(fontSize: 13, color: textTheme.bodyMedium?.color?.withOpacity(0.5))),
+            : Text('No interests added yet.', style: TextStyle(fontSize: 13, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
 
         const SizedBox(height: 48),
 
@@ -385,7 +385,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.only(top: 32),
-          child: Text("No events joined yet.", style: TextStyle(color: textTheme.bodyMedium?.color?.withOpacity(0.5))),
+          child: Text("No events joined yet.", style: TextStyle(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
         ),
       );
     }
@@ -407,7 +407,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.only(top: 32),
-          child: Text("No groups joined yet.", style: TextStyle(color: textTheme.bodyMedium?.color?.withOpacity(0.5))),
+          child: Text("No groups joined yet.", style: TextStyle(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
         ),
       );
     }
@@ -431,8 +431,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: textTheme.bodyMedium?.color?.withOpacity(0.02),
-        border: Border.all(color: textTheme.bodyMedium?.color?.withOpacity(0.05) ?? Colors.grey.withOpacity(0.05)),
+        color: textTheme.bodyMedium?.color?.withValues(alpha: 0.02),
+        border: Border.all(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.05) ?? Colors.grey.withValues(alpha: 0.05)),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -445,9 +445,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(Icons.calendar_today, size: 12, color: textTheme.bodyMedium?.color?.withOpacity(0.4)),
+                  Icon(Icons.calendar_today, size: 12, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.4)),
                   const SizedBox(width: 4),
-                  Text(date, style: TextStyle(fontSize: 11, color: textTheme.bodyMedium?.color?.withOpacity(0.5))),
+                  Text(date, style: TextStyle(fontSize: 11, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
                 ],
               ),
             ],
@@ -455,7 +455,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.1),
+              color: statusColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -473,8 +473,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: textTheme.bodyMedium?.color?.withOpacity(0.02),
-        border: Border.all(color: textTheme.bodyMedium?.color?.withOpacity(0.05) ?? Colors.grey.withOpacity(0.05)),
+        color: textTheme.bodyMedium?.color?.withValues(alpha: 0.02),
+        border: Border.all(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.05) ?? Colors.grey.withValues(alpha: 0.05)),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -491,13 +491,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(height: 2),
-                Text(eventName, style: TextStyle(fontSize: 11, color: textTheme.bodyMedium?.color?.withOpacity(0.5))),
+                Text(eventName, style: TextStyle(fontSize: 11, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.people_outline, size: 12, color: textTheme.bodyMedium?.color?.withOpacity(0.4)),
+                    Icon(Icons.people_outline, size: 12, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.4)),
                     const SizedBox(width: 4),
-                    Text(members, style: TextStyle(fontSize: 10, color: textTheme.bodyMedium?.color?.withOpacity(0.6))),
+                    Text(members, style: TextStyle(fontSize: 10, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.6))),
                   ],
                 ),
               ],
@@ -518,9 +518,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildDetailRow(IconData icon, String text, TextTheme textTheme) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: textTheme.bodyMedium?.color?.withOpacity(0.4)),
+        Icon(icon, size: 16, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.4)),
         const SizedBox(width: 8),
-        Text(text, style: TextStyle(fontSize: 13, color: textTheme.bodyMedium?.color?.withOpacity(0.6))),
+        Text(text, style: TextStyle(fontSize: 13, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.6))),
       ],
     );
   }
@@ -532,7 +532,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.1),
+            color: theme.colorScheme.primary.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: theme.colorScheme.primary, size: 16),
@@ -545,7 +545,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               if (subtitle.isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Text(subtitle, style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color?.withOpacity(0.5), height: 1.4)),
+                Text(subtitle, style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5), height: 1.4)),
               ],
             ],
           ),
@@ -559,7 +559,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.transparent,
-        border: Border.all(color: colorScheme.primary.withOpacity(0.3)),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -569,3 +569,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
+
