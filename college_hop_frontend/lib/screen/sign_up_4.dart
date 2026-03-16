@@ -139,7 +139,7 @@ class _SignUpStep4State extends State<SignUpStep4> {
                         counterText: "",
                         filled: true,
                         fillColor: theme.colorScheme.surfaceVariant
-                            .withValues(alpha: 0.8),
+                            .withOpacity(0.8),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,

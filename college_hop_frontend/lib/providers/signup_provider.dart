@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'dart:typed_data';
+
 class SignUpProvider with ChangeNotifier {
   // Step 1
   String _fullName = '';
@@ -13,6 +15,7 @@ class SignUpProvider with ChangeNotifier {
 
   // Step 3
   String _idCardUrl = '';
+  Uint8List? _idCardBytes;
 
   // Getters
   String get fullName => _fullName;
@@ -22,6 +25,7 @@ class SignUpProvider with ChangeNotifier {
   String get rollNumber => _rollNumber;
   String get idExpiration => _idExpiration;
   String get idCardUrl => _idCardUrl;
+  Uint8List? get idCardBytes => _idCardBytes;
 
   void updateStep1({required String fullName, required String email}) {
     _fullName = fullName;
@@ -42,8 +46,9 @@ class SignUpProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void updateStep3({required String idCardUrl}) {
-    _idCardUrl = idCardUrl;
+  void updateStep3({String? idCardUrl, Uint8List? idCardBytes}) {
+    if (idCardUrl != null) _idCardUrl = idCardUrl;
+    if (idCardBytes != null) _idCardBytes = idCardBytes;
     notifyListeners();
   }
 
@@ -73,6 +78,7 @@ class SignUpProvider with ChangeNotifier {
     _rollNumber = '';
     _idExpiration = '';
     _idCardUrl = '';
+    _idCardBytes = null;
     notifyListeners();
   }
 }
