@@ -494,69 +494,80 @@ class _ThreadTile extends StatelessWidget {
                 children: [
                   // name row
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: Text(
-                          thread.name,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (thread.isVerified) ...[
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.verified,
-                                  size: 10,
-                                  color: theme.colorScheme.primary),
-                              const SizedBox(width: 2),
-                              Text(
-                                'Verified',
-                                style: TextStyle(
-                                  color: theme.colorScheme.primary,
-                                  fontSize: 9,
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                thread.name,
+                                style: theme.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.w700,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (thread.isVerified) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.verified,
+                                        size: 10,
+                                        color: theme.colorScheme.primary),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      'Verified',
+                                      style: TextStyle(
+                                        color: theme.colorScheme.primary,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
-                          ),
+                            if (thread.isPinged) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFF7043).withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'Active',
+                                  style: TextStyle(
+                                    color: Color(0xFFFF7043),
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
-                      if (thread.isPinged) ...[
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFF7043).withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(6),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 65,
+                        child: Text(
+                          thread.time,
+                          textAlign: TextAlign.left,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color:
+                                theme.colorScheme.onSurface.withValues(alpha: 0.45),
                           ),
-                          child: const Text(
-                            'Active',
-                            style: TextStyle(
-                              color: Color(0xFFFF7043),
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                      const Spacer(),
-                      Text(
-                        thread.time,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color:
-                              theme.colorScheme.onSurface.withValues(alpha: 0.45),
                         ),
                       ),
                     ],
