@@ -1,8 +1,10 @@
 import 'package:college_hop/screen/new_event_submission.dart';
 import 'package:college_hop/screen/notification_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:college_hop/providers/auth_provider.dart';
+import 'package:college_hop/providers/event_provider.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 import 'package:college_hop/screen/welcome_screen.dart';
 import 'package:college_hop/screen/connect_profile_screen.dart';
@@ -19,8 +21,21 @@ class _MyEventState extends State<MyEvent> {
   int _currentIndex = 0;
  
   // Mock data
-  String _selectedEvent = "Hackathon @ IIT Delhi";
-  String _selectedEventDate = "March 12";
+  late String _selectedEvent;
+  late String _selectedEventDate;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final active = context.read<EventProvider>().activeEvent;
+    if (active != null) {
+      _selectedEvent = active.name;
+      _selectedEventDate = DateFormat('MMM d').format(active.startDate);
+    } else {
+      _selectedEvent = 'No event selected';
+      _selectedEventDate = '';
+    }
+  }
 
   final List<Map<String, dynamic>> _travelGroups = [
     {

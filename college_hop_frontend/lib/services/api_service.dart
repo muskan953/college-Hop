@@ -97,6 +97,29 @@ class ApiService {
     );
   }
 
+  /// GET /events — fetch all approved events (public, no auth required)
+  static Future<http.Response> getEvents() async {
+    final url = Uri.parse("$baseUrl/events");
+    return await http.get(
+      url,
+      headers: {"Content-Type": "application/json"},
+    );
+  }
+
+  /// PUT /me/event — set user's active event interest
+  static Future<http.Response> setUserEvent(
+      String token, String eventId, String status) async {
+    final url = Uri.parse("$baseUrl/me/event");
+    return await http.put(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({"event_id": eventId, "status": status}),
+    );
+  }
+
   static Future<http.Response> getUserEvents(String token) async {
     final url = Uri.parse("$baseUrl/me/events");
     return await http.get(

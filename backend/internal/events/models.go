@@ -18,6 +18,7 @@ type Event struct {
 	SubmittedBy     string     `json:"submitted_by,omitempty"`
 	Status          string     `json:"status"`
 	CreatedAt       time.Time  `json:"created_at"`
+	Attendees       int        `json:"attendees"`
 }
 
 // CreateEventRequest is the payload for POST /events

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:college_hop/providers/event_provider.dart';
 import 'screen/home_screen.dart';
 import 'screen/myevent.dart';
 import 'screen/groups_screen.dart';
@@ -17,16 +19,18 @@ class MainnScreen extends StatefulWidget {
 class _MainnScreenState extends State<MainnScreen> {
   int _currentIndex = 0;
 
-  late final List<Widget> _screens = [
-    const DefaultMainScreen(),
-    const GroupsScreen(),
-    const MessagesScreen(),
-    const ProfileScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasActiveEvent = context.watch<EventProvider>().hasActiveEvent;
+
+    // Conditionally swap Tab 0 between MyEvent and DefaultMainScreen
+    final screens = <Widget>[
+      hasActiveEvent ? const MyEvent() : const DefaultMainScreen(),
+      const GroupsScreen(),
+      const MessagesScreen(),
+      const ProfileScreen(),
+    ];
 
     return Scaffold(
       floatingActionButton: _currentIndex == 0
@@ -46,7 +50,7 @@ class _MainnScreenState extends State<MainnScreen> {
 
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: screens,
       ),
 
       bottomNavigationBar: BottomNavBar(

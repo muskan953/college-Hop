@@ -54,7 +54,7 @@ func scanEvent(row interface {
 		&e.ID, &e.Name, &category, &e.Venue, &e.Organizer,
 		&e.StartDate, &endDate, &timeDescription,
 		&eventLink, &brochureURL, &ticketLink,
-		&e.Status, &e.CreatedAt,
+		&e.Status, &e.CreatedAt, &e.Attendees,
 	)
 	if err != nil {
 		return err
@@ -82,17 +82,18 @@ func scanEvent(row interface {
 }
 
 const listEventColumns = `
-	id, name, category, venue, organizer,
-	start_date, end_date, time_description,
-	event_link, brochure_url, ticket_link,
-	status, created_at`
+	e.id, e.name, e.category, e.venue, e.organizer,
+	e.start_date, e.end_date, e.time_description,
+	e.event_link, e.brochure_url, e.ticket_link,
+	e.status, e.created_at,
+	COALESCE((SELECT COUNT(*) FROM user_events ue WHERE ue.event_id = e.id), 0) AS attendees`
 
 func (r *PostgresRepository) ListApprovedEvents(ctx context.Context) ([]Event, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT`+listEventColumns+`
-		 FROM events
-		 WHERE status = 'approved'
-		 ORDER BY start_date ASC`)
+		 FROM events e
+		 WHERE e.status = 'approved'
+		 ORDER BY e.start_date ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -112,9 +113,9 @@ func (r *PostgresRepository) ListApprovedEvents(ctx context.Context) ([]Event, e
 func (r *PostgresRepository) ListPendingEvents(ctx context.Context) ([]Event, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT`+listEventColumns+`
-		 FROM events
-		 WHERE status = 'pending'
-		 ORDER BY created_at DESC`)
+		 FROM events e
+		 WHERE e.status = 'pending'
+		 ORDER BY e.created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +143,7 @@ func (r *PostgresRepository) GetEvent(ctx context.Context, eventID string) (*Eve
 	var e Event
 	err := scanEvent(r.db.QueryRowContext(ctx,
 		`SELECT`+listEventColumns+`
-		 FROM events WHERE id = $1`, eventID), &e)
+		 FROM events e WHERE e.id = $1`, eventID), &e)
 	if err != nil {
 		return nil, err
 	}
