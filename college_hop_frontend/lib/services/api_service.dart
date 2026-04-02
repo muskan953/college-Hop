@@ -157,5 +157,55 @@ class ApiService {
     request.files.add(await http.MultipartFile.fromPath('file', filePath, filename: fileName));
     return await request.send();
   }
+
+  /// GET /users/matches?event_id=xxx — find best peer matches for an event
+  static Future<http.Response> getMatches(String token, String eventId) async {
+    final url = Uri.parse("$baseUrl/users/matches?event_id=$eventId");
+    return await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+  }
+
+  /// GET /groups/suggested?event_id=xxx — get suggested groups for an event
+  static Future<http.Response> getSuggestedGroups(
+      String token, String eventId) async {
+    final url = Uri.parse("$baseUrl/groups/suggested?event_id=$eventId");
+    return await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+  }
+
+  /// GET /groups/{id} — get full group details with members
+  static Future<http.Response> getGroupDetails(
+      String token, String groupId) async {
+    final url = Uri.parse("$baseUrl/groups/$groupId");
+    return await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+  }
+
+  /// POST /groups/{id}/join — join a travel group
+  static Future<http.Response> joinGroup(String token, String groupId) async {
+    final url = Uri.parse("$baseUrl/groups/$groupId/join");
+    return await http.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+  }
 }
 

@@ -217,7 +217,7 @@ class _GroupCard extends StatelessWidget {
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => GroupDetailsScreen(groupName: group.eventName),
+            builder: (_) => GroupDetailsScreen(groupId: group.id),
           ),
         );
       },
