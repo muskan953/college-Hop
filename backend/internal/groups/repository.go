@@ -38,6 +38,9 @@ type Repository interface {
 	RemoveMember(ctx context.Context, groupID, userID string) error
 	IsGroupMember(ctx context.Context, groupID, userID string) (bool, error)
 	GetUserGroups(ctx context.Context, userID string) ([]GroupWithDetails, error)
+	// GetAllGroups returns all travel groups along with member count and whether
+	// the given userID is currently a member of each group.
+	GetAllGroups(ctx context.Context, userID string) ([]GroupWithDetails, error)
 }
 
 // UserWithInterests holds a user's profile data and interests for matching
@@ -417,6 +420,38 @@ func (r *PostgresRepository) GetUserGroups(ctx context.Context, userID string) (
 			&g.ID, &g.EventID, &g.Name, &g.Description,
 			&g.CreatedBy, &g.MaxMembers, &g.CreatedAt,
 			&g.DepartureDate, &g.MeetingPoint, &g.MemberCount,
+		); err != nil {
+			return nil, err
+		}
+		g.IsJoined = true // the user is a member of every group returned by this query
+		groups = append(groups, g)
+	}
+	return groups, nil
+}
+
+// GetAllGroups returns all travel groups with live member counts and a flag indicating
+// whether the given user is already a member.
+func (r *PostgresRepository) GetAllGroups(ctx context.Context, userID string) ([]GroupWithDetails, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT tg.id, tg.event_id, tg.name, COALESCE(tg.description, ''),
+		        tg.created_by, tg.max_members, tg.created_at,
+		        tg.departure_date, COALESCE(tg.meeting_point, ''),
+		        (SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = tg.id) AS member_count,
+		        EXISTS (SELECT 1 FROM group_members gm2 WHERE gm2.group_id = tg.id AND gm2.user_id = $1) AS is_joined
+		 FROM travel_groups tg
+		 ORDER BY tg.created_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var groups []GroupWithDetails
+	for rows.Next() {
+		var g GroupWithDetails
+		if err := rows.Scan(
+			&g.ID, &g.EventID, &g.Name, &g.Description,
+			&g.CreatedBy, &g.MaxMembers, &g.CreatedAt,
+			&g.DepartureDate, &g.MeetingPoint, &g.MemberCount, &g.IsJoined,
 		); err != nil {
 			return nil, err
 		}

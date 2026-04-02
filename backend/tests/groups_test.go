@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/muskan953/college-Hop/internal/auth"
 	"github.com/muskan953/college-Hop/internal/groups"
@@ -827,6 +828,9 @@ func (m *MockGroupsRepositoryFull) GetUserGroups(ctx context.Context, userID str
 	if m.GetUserGroupsFunc != nil {
 		return m.GetUserGroupsFunc(ctx, userID)
 	}
+	return []groups.GroupWithDetails{}, nil
+}
+func (m *MockGroupsRepositoryFull) GetAllGroups(ctx context.Context, userID string) ([]groups.GroupWithDetails, error) {
 	return []groups.GroupWithDetails{}, nil
 }
 

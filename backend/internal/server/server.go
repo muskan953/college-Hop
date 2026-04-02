@@ -145,8 +145,18 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 	// Protected: get all groups the user belongs to
 	mux.Handle("/me/groups", authMW(http.HandlerFunc(groupsHandler.GetMyGroups)))
 
-	// Protected: create group
-	mux.Handle("/groups", authMW(http.HandlerFunc(groupsHandler.CreateGroup)))
+	// Protected: create group or list all groups
+	mux.Handle("/groups", authMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			groupsHandler.ListAllGroups(w, r)
+			return
+		}
+		if r.Method == http.MethodPost {
+			groupsHandler.CreateGroup(w, r)
+			return
+		}
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	})))
 
 	// Protected: group detail, update, delete, join, leave, kick (/groups/{id}/...)
 	mux.Handle("/groups/", authMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

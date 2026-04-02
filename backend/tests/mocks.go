@@ -107,6 +107,12 @@ func (m *MockProfileRepository) GetProfile(ctx context.Context, userID string) (
 	}
 	return &profile.ProfileResponse{}, nil
 }
+func (m *MockProfileRepository) UpsertPreferences(ctx context.Context, userID string, req profile.UpdatePreferencesRequest) error {
+	return nil
+}
+func (m *MockProfileRepository) GetPreferences(ctx context.Context, userID string) (*profile.PreferencesResponse, error) {
+	return &profile.PreferencesResponse{}, nil
+}
 
 // ensure MockFileStorage implements storage.FileStorage
 type MockFileStorage struct {
@@ -172,6 +178,9 @@ func (m *MockEventsRepository) SetUserEvent(ctx context.Context, userID, eventID
 func (m *MockEventsRepository) GetUserEvent(ctx context.Context, userID string) (*events.UserEvent, error) {
 	return &events.UserEvent{}, nil
 }
+func (m *MockEventsRepository) GetUserEvents(ctx context.Context, userID string) ([]events.UserEventDetails, error) {
+	return []events.UserEventDetails{}, nil
+}
 
 // MockGroupsRepository implements groups.Repository
 type MockGroupsRepository struct{}
@@ -225,5 +234,8 @@ func (m *MockGroupsRepository) IsGroupMember(ctx context.Context, groupID, userI
 	return false, nil
 }
 func (m *MockGroupsRepository) GetUserGroups(ctx context.Context, userID string) ([]groups.GroupWithDetails, error) {
+	return []groups.GroupWithDetails{}, nil
+}
+func (m *MockGroupsRepository) GetAllGroups(ctx context.Context, userID string) ([]groups.GroupWithDetails, error) {
 	return []groups.GroupWithDetails{}, nil
 }

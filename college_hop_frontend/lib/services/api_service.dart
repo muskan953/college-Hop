@@ -207,5 +207,17 @@ class ApiService {
       },
     );
   }
+
+  /// GET /groups — list all travel groups with is_joined flag
+  static Future<http.Response> getAllGroups(String token) async {
+    final url = Uri.parse("$baseUrl/groups");
+    return await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+  }
 }
 

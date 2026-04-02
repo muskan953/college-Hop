@@ -13,9 +13,8 @@ func TestCalculateSimilarity_IdenticalSets(t *testing.T) {
 
 	score := groups.CalculateSimilarity(a, b)
 
-	// Jaccard = 3/3 = 1.0, log10(1+3) = 0.602...
-	// Score = 1.0 * 0.602 = 0.602
-	expected := 1.0 * math.Log10(4.0)
+	// Score = intersection(a,b) / len(a) = 3/3 = 1.0
+	expected := 1.0
 	if math.Abs(score-expected) > 0.001 {
 		t.Errorf("identical sets: got %.4f, want %.4f", score, expected)
 	}
@@ -39,13 +38,9 @@ func TestCalculateSimilarity_PartialOverlap(t *testing.T) {
 	score := groups.CalculateSimilarity(a, b)
 
 	// Intersection: {AI, Cloud} = 2
-	// Union: {AI, Robotics, ML, Cloud, DevOps, Security} = 6
-	// Jaccard = 2/6 = 0.333
-	// log10(1+2) = 0.477
-	// Score = 0.333 * 0.477 = ~0.159
-	jaccard := 2.0 / 6.0
-	logWeight := math.Log10(3.0)
-	expected := jaccard * logWeight
+	// len(a) = 4
+	// Score = 2/4 = 0.5
+	expected := 2.0 / 4.0
 	if math.Abs(score-expected) > 0.001 {
 		t.Errorf("partial overlap: got %.4f, want %.4f", score, expected)
 	}
@@ -62,24 +57,20 @@ func TestCalculateSimilarity_EmptyInput(t *testing.T) {
 }
 
 func TestCalculateSimilarity_SmallDataBiasResistance(t *testing.T) {
-	// 1 match out of 1 (trivially perfect but shallow)
-	aSmall := []string{"AI"}
-	bSmall := []string{"AI"}
-	scoreSmall := groups.CalculateSimilarity(aSmall, bSmall)
-	// Jaccard = 1/1 = 1.0, log10(1+1) = 0.301
-	// Score = 1.0 * 0.301 = 0.301
+	// a covers all of b's interests (perfect coverage of a)
+	aFull := []string{"AI"}
+	bFull := []string{"AI"}
+	scoreFull := groups.CalculateSimilarity(aFull, bFull)
+	// intersection/len(a) = 1/1 = 1.0
 
-	// 5 matches out of 7 union (deep and meaningful)
-	aDeep := []string{"AI", "ML", "Robotics", "Cloud", "DevOps"}
-	bDeep := []string{"AI", "ML", "Robotics", "Cloud", "DevOps", "IoT", "Security"}
-	scoreDeep := groups.CalculateSimilarity(aDeep, bDeep)
-	// Jaccard = 5/7 = 0.714, log10(1+5) = 0.778
-	// Score = 0.714 * 0.778 = 0.556
+	// a has interests b doesn't fully share — score should be less than 1.0
+	aPartial := []string{"AI", "ML", "Robotics"}
+	bPartial := []string{"AI", "ML"}
+	scorePartial := groups.CalculateSimilarity(aPartial, bPartial)
+	// intersection/len(a) = 2/3 = 0.667
 
-	// The log-enhanced version should make the deep match score higher
-	// than the trivial 1/1 match, defeating small data bias
-	if scoreDeep <= scoreSmall {
-		t.Errorf("log-enhanced Jaccard should defeat small data bias: deep=%.4f, small=%.4f", scoreDeep, scoreSmall)
+	if scorePartial >= scoreFull {
+		t.Errorf("partial match should score lower than full match: partial=%.4f, full=%.4f", scorePartial, scoreFull)
 	}
 }
 

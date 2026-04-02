@@ -19,6 +19,7 @@ type Group struct {
 type GroupWithDetails struct {
 	Group
 	MemberCount int      `json:"member_count"`
+	IsJoined    bool     `json:"is_joined"`
 	MatchScore  float64  `json:"match_score"`
 	Interests   []string `json:"interests"` // combined unique interests of all members
 }

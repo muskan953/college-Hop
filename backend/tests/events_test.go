@@ -247,3 +247,6 @@ func (m *MockEventsRepositoryFull) GetUserEvent(ctx context.Context, userID stri
 	}
 	return &events.UserEvent{}, nil
 }
+func (m *MockEventsRepositoryFull) GetUserEvents(ctx context.Context, userID string) ([]events.UserEventDetails, error) {
+	return []events.UserEventDetails{}, nil
+}
