@@ -1,0 +1,2 @@
+ALTER TABLE travel_groups ADD COLUMN IF NOT EXISTS departure_date TIMESTAMP;
+ALTER TABLE travel_groups ADD COLUMN IF NOT EXISTS meeting_point VARCHAR(255);
