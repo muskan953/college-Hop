@@ -51,11 +51,13 @@ func (h *Handler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	group := &Group{
-		EventID:     req.EventID,
-		Name:        req.Name,
-		Description: strings.TrimSpace(req.Description),
-		CreatedBy:   user.ID,
-		MaxMembers:  maxMembers,
+		EventID:       req.EventID,
+		Name:          req.Name,
+		Description:   strings.TrimSpace(req.Description),
+		CreatedBy:     user.ID,
+		MaxMembers:    maxMembers,
+		DepartureDate: req.DepartureDate,
+		MeetingPoint:  strings.TrimSpace(req.MeetingPoint),
 	}
 
 	if err := h.repo.CreateGroup(r.Context(), group); err != nil {
@@ -191,10 +193,16 @@ func (h *Handler) SuggestedGroups(w http.ResponseWriter, r *http.Request) {
 			avgScore = totalScore / float64(len(memberInterestsList))
 		}
 
-		// Collect unique interests
+		// Collect unique shared interests between the user and the group members
 		var interests []string
 		for k := range allInterests {
-			interests = append(interests, k)
+			// Only add if the user also has this interest
+			for _, ui := range userInterests {
+				if ui == k {
+					interests = append(interests, k)
+					break
+				}
+			}
 		}
 
 		result := g // copy GroupWithDetails (already has MemberCount)
@@ -249,7 +257,7 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, ok := auth.UserFromContext(r.Context())
+	user, ok := auth.UserFromContext(r.Context())
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -279,9 +287,10 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := GroupDetailResponse{
-		Group:       *group,
-		MemberCount: len(members),
-		Members:     members,
+		Group:         *group,
+		MemberCount:   len(members),
+		Members:       members,
+		CurrentUserID: user.ID,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -329,7 +338,7 @@ func (h *Handler) UpdateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.repo.UpdateGroup(r.Context(), groupID, req.Name, strings.TrimSpace(req.Description)); err != nil {
+	if err := h.repo.UpdateGroup(r.Context(), groupID, req.Name, strings.TrimSpace(req.Description), strings.TrimSpace(req.MeetingPoint), req.DepartureDate); err != nil {
 		http.Error(w, "failed to update group", http.StatusInternalServerError)
 		return
 	}

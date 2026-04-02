@@ -212,7 +212,7 @@ func (m *MockGroupsRepository) GetUserInterests(ctx context.Context, userID stri
 func (m *MockGroupsRepository) GetGroupMembers(ctx context.Context, groupID string) ([]groups.GroupMemberProfile, error) {
 	return []groups.GroupMemberProfile{}, nil
 }
-func (m *MockGroupsRepository) UpdateGroup(ctx context.Context, groupID, name, description string) error {
+func (m *MockGroupsRepository) UpdateGroup(ctx context.Context, groupID, name, description, meetingPoint string, departureDate *time.Time) error {
 	return nil
 }
 func (m *MockGroupsRepository) DeleteGroup(ctx context.Context, groupID string) error {

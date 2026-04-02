@@ -4,13 +4,15 @@ import "time"
 
 // Group represents a travel group for an event
 type Group struct {
-	ID          string    `json:"id"`
-	EventID     string    `json:"event_id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description,omitempty"`
-	CreatedBy   string    `json:"created_by"`
-	MaxMembers  int       `json:"max_members"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID            string     `json:"id"`
+	EventID       string     `json:"event_id"`
+	Name          string     `json:"name"`
+	Description   string     `json:"description,omitempty"`
+	CreatedBy     string     `json:"created_by"`
+	MaxMembers    int        `json:"max_members"`
+	CreatedAt     time.Time  `json:"created_at"`
+	DepartureDate *time.Time `json:"departure_date,omitempty"`
+	MeetingPoint  string     `json:"meeting_point,omitempty"`
 }
 
 // GroupWithDetails includes member count and match info for API responses
@@ -23,10 +25,12 @@ type GroupWithDetails struct {
 
 // CreateGroupRequest is the payload for POST /groups
 type CreateGroupRequest struct {
-	EventID     string `json:"event_id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	MaxMembers  int    `json:"max_members"`
+	EventID       string     `json:"event_id"`
+	Name          string     `json:"name"`
+	Description   string     `json:"description"`
+	MaxMembers    int        `json:"max_members"`
+	DepartureDate *time.Time `json:"departure_date,omitempty"`
+	MeetingPoint  string     `json:"meeting_point,omitempty"`
 }
 
 // GroupMember represents a member in a travel group
@@ -48,14 +52,17 @@ type GroupMemberProfile struct {
 // GroupDetailResponse is returned by GET /groups/{id} — full group info with members
 type GroupDetailResponse struct {
 	Group
-	MemberCount int                  `json:"member_count"`
-	Members     []GroupMemberProfile `json:"members"`
+	MemberCount   int                  `json:"member_count"`
+	Members       []GroupMemberProfile `json:"members"`
+	CurrentUserID string               `json:"current_user_id"`
 }
 
 // UpdateGroupRequest is the payload for PUT /groups/{id}
 type UpdateGroupRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name          string     `json:"name"`
+	Description   string     `json:"description"`
+	DepartureDate *time.Time `json:"departure_date,omitempty"`
+	MeetingPoint  string     `json:"meeting_point,omitempty"`
 }
 
 // KickRequest is the payload for POST /groups/{id}/kick

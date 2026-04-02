@@ -1,10 +1,10 @@
 package groups
 
-import "math"
 
-// CalculateSimilarity computes Log-Enhanced Jaccard Similarity
-// Score = (|Intersection| / |Union|) * log10(1 + |Intersection|)
-// This mitigates "Small Data Bias" where 1/1 match would beat 5/10 match.
+
+// CalculateSimilarity computes an intuitive match percentage.
+// Score = (|Intersection| / |User Interests|)
+// This tells the user "What percentage of YOUR interests does this person/group satisfy?"
 func CalculateSimilarity(a []string, b []string) float64 {
 	if len(a) == 0 || len(b) == 0 {
 		return 0.0
@@ -28,24 +28,7 @@ func CalculateSimilarity(a []string, b []string) float64 {
 		}
 	}
 
-	// Union
-	unionSet := make(map[string]bool)
-	for k := range setA {
-		unionSet[k] = true
-	}
-	for k := range setB {
-		unionSet[k] = true
-	}
-	unionCount := len(unionSet)
-
-	if unionCount == 0 {
-		return 0.0
-	}
-
-	jaccard := float64(intersectionCount) / float64(unionCount)
-	weight := math.Log10(1.0 + float64(intersectionCount))
-
-	return jaccard * weight
+	return float64(intersectionCount) / float64(len(setA))
 }
 
 // FindCommonInterests returns the intersection of two interest lists

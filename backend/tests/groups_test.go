@@ -328,7 +328,7 @@ func TestUpdateGroup_Success(t *testing.T) {
 		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
 			return &groups.Group{ID: groupID, Name: "Old Name", CreatedBy: creatorID, MaxMembers: 4}, nil
 		},
-		UpdateGroupFunc: func(ctx context.Context, groupID, name, description string) error {
+		UpdateGroupFunc: func(ctx context.Context, groupID, name, description, meetingPoint string, departureDate *time.Time) error {
 			return nil
 		},
 	}
@@ -720,7 +720,7 @@ type MockGroupsRepositoryFull struct {
 	GetUsersForEventFunc                func(ctx context.Context, eventID, excludeUserID string) ([]groups.UserWithInterests, error)
 	GetUserInterestsFunc                func(ctx context.Context, userID string) ([]string, error)
 	GetGroupMembersFunc                 func(ctx context.Context, groupID string) ([]groups.GroupMemberProfile, error)
-	UpdateGroupFunc                     func(ctx context.Context, groupID, name, description string) error
+	UpdateGroupFunc                     func(ctx context.Context, groupID, name, description, meetingPoint string, departureDate *time.Time) error
 	DeleteGroupFunc                     func(ctx context.Context, groupID string) error
 	RemoveMemberFunc                    func(ctx context.Context, groupID, userID string) error
 	IsGroupMemberFunc                   func(ctx context.Context, groupID, userID string) (bool, error)
@@ -799,9 +799,9 @@ func (m *MockGroupsRepositoryFull) GetGroupMembers(ctx context.Context, groupID 
 	}
 	return []groups.GroupMemberProfile{}, nil
 }
-func (m *MockGroupsRepositoryFull) UpdateGroup(ctx context.Context, groupID, name, description string) error {
+func (m *MockGroupsRepositoryFull) UpdateGroup(ctx context.Context, groupID, name, description, meetingPoint string, departureDate *time.Time) error {
 	if m.UpdateGroupFunc != nil {
-		return m.UpdateGroupFunc(ctx, groupID, name, description)
+		return m.UpdateGroupFunc(ctx, groupID, name, description, meetingPoint, departureDate)
 	}
 	return nil
 }

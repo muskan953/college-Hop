@@ -139,6 +139,7 @@ func (r *PostgresRepository) GetProfile(ctx context.Context, userID string) (*Pr
 	}
 
 	// Map NullString values
+	profile.UserID = userID
 	profile.FullName = fullName.String
 	profile.CollegeName = collegeName.String
 	profile.Major = major.String

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 )
 
 // ErrGroupFull is returned by JoinGroupChecked when the group has reached max capacity.
@@ -32,7 +33,7 @@ type Repository interface {
 	GetUserInterests(ctx context.Context, userID string) ([]string, error)
 	// Group management
 	GetGroupMembers(ctx context.Context, groupID string) ([]GroupMemberProfile, error)
-	UpdateGroup(ctx context.Context, groupID, name, description string) error
+	UpdateGroup(ctx context.Context, groupID, name, description, meetingPoint string, departureDate *time.Time) error
 	DeleteGroup(ctx context.Context, groupID string) error
 	RemoveMember(ctx context.Context, groupID, userID string) error
 	IsGroupMember(ctx context.Context, groupID, userID string) (bool, error)
@@ -58,19 +59,22 @@ func NewRepository(db *sql.DB) Repository {
 
 func (r *PostgresRepository) CreateGroup(ctx context.Context, group *Group) error {
 	return r.db.QueryRowContext(ctx,
-		`INSERT INTO travel_groups (event_id, name, description, created_by, max_members)
-		 VALUES ($1, $2, $3, $4, $5)
+		`INSERT INTO travel_groups (event_id, name, description, created_by, max_members, departure_date, meeting_point)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 RETURNING id`,
 		group.EventID, group.Name, group.Description, group.CreatedBy, group.MaxMembers,
+		group.DepartureDate, group.MeetingPoint,
 	).Scan(&group.ID)
 }
 
 func (r *PostgresRepository) GetGroup(ctx context.Context, groupID string) (*Group, error) {
 	var g Group
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, event_id, name, COALESCE(description, ''), created_by, max_members, created_at
+		`SELECT id, event_id, name, COALESCE(description, ''), created_by, max_members, created_at,
+		        departure_date, COALESCE(meeting_point, '')
 		 FROM travel_groups WHERE id = $1`, groupID,
-	).Scan(&g.ID, &g.EventID, &g.Name, &g.Description, &g.CreatedBy, &g.MaxMembers, &g.CreatedAt)
+	).Scan(&g.ID, &g.EventID, &g.Name, &g.Description, &g.CreatedBy, &g.MaxMembers, &g.CreatedAt,
+		&g.DepartureDate, &g.MeetingPoint)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +142,8 @@ func (r *PostgresRepository) GetMemberCount(ctx context.Context, groupID string)
 
 func (r *PostgresRepository) GetGroupsForEvent(ctx context.Context, eventID string) ([]Group, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, event_id, name, COALESCE(description, ''), created_by, max_members, created_at
+		`SELECT id, event_id, name, COALESCE(description, ''), created_by, max_members, created_at,
+		        departure_date, COALESCE(meeting_point, '')
 		 FROM travel_groups
 		 WHERE event_id = $1
 		 ORDER BY created_at DESC`, eventID)
@@ -150,7 +155,8 @@ func (r *PostgresRepository) GetGroupsForEvent(ctx context.Context, eventID stri
 	var groups []Group
 	for rows.Next() {
 		var g Group
-		if err := rows.Scan(&g.ID, &g.EventID, &g.Name, &g.Description, &g.CreatedBy, &g.MaxMembers, &g.CreatedAt); err != nil {
+		if err := rows.Scan(&g.ID, &g.EventID, &g.Name, &g.Description, &g.CreatedBy, &g.MaxMembers, &g.CreatedAt,
+			&g.DepartureDate, &g.MeetingPoint); err != nil {
 			return nil, err
 		}
 		groups = append(groups, g)
@@ -164,6 +170,7 @@ func (r *PostgresRepository) GetGroupsWithCountsForEvent(ctx context.Context, ev
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT tg.id, tg.event_id, tg.name, COALESCE(tg.description, ''),
 		        tg.created_by, tg.max_members, tg.created_at,
+		        tg.departure_date, COALESCE(tg.meeting_point, ''),
 		        (SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = tg.id) AS member_count
 		 FROM travel_groups tg
 		 WHERE tg.event_id = $1
@@ -178,7 +185,8 @@ func (r *PostgresRepository) GetGroupsWithCountsForEvent(ctx context.Context, ev
 		var g GroupWithDetails
 		if err := rows.Scan(
 			&g.ID, &g.EventID, &g.Name, &g.Description,
-			&g.CreatedBy, &g.MaxMembers, &g.CreatedAt, &g.MemberCount,
+			&g.CreatedBy, &g.MaxMembers, &g.CreatedAt,
+			&g.DepartureDate, &g.MeetingPoint, &g.MemberCount,
 		); err != nil {
 			return nil, err
 		}
@@ -334,11 +342,11 @@ func (r *PostgresRepository) GetGroupMembers(ctx context.Context, groupID string
 	return members, nil
 }
 
-// UpdateGroup updates the name and description of a group
-func (r *PostgresRepository) UpdateGroup(ctx context.Context, groupID, name, description string) error {
+// UpdateGroup updates the name, description, departure_date, and meeting_point of a group
+func (r *PostgresRepository) UpdateGroup(ctx context.Context, groupID, name, description, meetingPoint string, departureDate *time.Time) error {
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE travel_groups SET name = $1, description = $2 WHERE id = $3`,
-		name, description, groupID)
+		`UPDATE travel_groups SET name = $1, description = $2, departure_date = $3, meeting_point = $4 WHERE id = $5`,
+		name, description, departureDate, meetingPoint, groupID)
 	return err
 }
 
@@ -391,6 +399,7 @@ func (r *PostgresRepository) GetUserInterests(ctx context.Context, userID string
 func (r *PostgresRepository) GetUserGroups(ctx context.Context, userID string) ([]GroupWithDetails, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT tg.id, tg.event_id, tg.name, COALESCE(tg.description, ''), tg.created_by, tg.max_members, tg.created_at,
+		        tg.departure_date, COALESCE(tg.meeting_point, ''),
 		        (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = tg.id) AS member_count
 		 FROM group_members gm
 		 JOIN travel_groups tg ON gm.group_id = tg.id
@@ -406,7 +415,8 @@ func (r *PostgresRepository) GetUserGroups(ctx context.Context, userID string) (
 		var g GroupWithDetails
 		if err := rows.Scan(
 			&g.ID, &g.EventID, &g.Name, &g.Description,
-			&g.CreatedBy, &g.MaxMembers, &g.CreatedAt, &g.MemberCount,
+			&g.CreatedBy, &g.MaxMembers, &g.CreatedAt,
+			&g.DepartureDate, &g.MeetingPoint, &g.MemberCount,
 		); err != nil {
 			return nil, err
 		}
