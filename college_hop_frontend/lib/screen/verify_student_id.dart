@@ -12,8 +12,14 @@ class VerifyStudentIDScreen extends StatefulWidget {
 class _VerifyStudentIDScreenState extends State<VerifyStudentIDScreen> {
 
   String fileName = "student_id.jpg";
+  String uploadDate = "Jan 15, 2025";
   String? newlyPickedFileName;
   bool _isUploading = false;
+
+  String _getFormattedDate(DateTime date) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return "${months[date.month - 1]} ${date.day}, ${date.year}";
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -132,7 +138,7 @@ class _VerifyStudentIDScreenState extends State<VerifyStudentIDScreen> {
                   ),
 
                   Text(
-                    "Uploaded Jan 15, 2025",
+                    "Uploaded $uploadDate",
                     style: TextStyle(
                       fontSize: 12,
                       color: theme.colorScheme.onSurface.withValues(alpha: .6),
@@ -225,6 +231,7 @@ class _VerifyStudentIDScreenState extends State<VerifyStudentIDScreen> {
                             await Future.delayed(const Duration(seconds: 2)); // Simulate upload
                             setState(() {
                               fileName = newlyPickedFileName!;
+                              uploadDate = _getFormattedDate(DateTime.now());
                               newlyPickedFileName = null;
                               _isUploading = false;
                             });

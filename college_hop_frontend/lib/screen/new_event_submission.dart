@@ -315,8 +315,50 @@ class _SubmitEventScreenState extends State<SubmitEventScreen> {
                       ),
                     ),
                     onPressed: () {
-  print("Submit button pressed");
-},
+                      if (organizerController.text.trim().isEmpty ||
+                          eventNameController.text.trim().isEmpty ||
+                          selectedCategory == null ||
+                          venueController.text.trim().isEmpty ||
+                          startDate == null ||
+                          endDate == null ||
+                          timeController.text.trim().isEmpty ||
+                          brochureName == null ||
+                          eventLinkController.text.trim().isEmpty) {
+                        
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Please fill in all mandatory fields"),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (ctx) => AlertDialog(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          title: const Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.green),
+                              SizedBox(width: 8),
+                              Text("Success", style: TextStyle(fontSize: 18)),
+                            ],
+                          ),
+                          content: const Text("Your event has been sent for review."),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                Navigator.pop(context);
+                              },
+                              child: const Text("OK"),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                     child: const Text(
                       "Submit Event for Review",
                       style: TextStyle(fontWeight: FontWeight.w600),

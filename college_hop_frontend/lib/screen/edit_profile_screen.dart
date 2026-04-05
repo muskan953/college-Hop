@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -59,8 +60,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (token != null) {
         final url = await context.read<ProfileProvider>().uploadProfilePhoto(
           token: token,
-          filePath: image.path,
           fileName: image.name,
+          filePath: kIsWeb ? null : image.path,
+          fileBytes: bytes,
         );
         if (url != null) {
           setState(() => _uploadedPhotoUrl = url);
@@ -463,6 +465,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 ////////////////////////////////////////////////////////////
 
  void showUpdateStudentIDDialog() {
+  newExpirationController.clear();
+  selectedPdf = null;
 
   showDialog(
     context: context,
@@ -543,32 +547,47 @@ Text(
 
 const SizedBox(height: 6),
 
-TextField(
-  controller: newExpirationController,
-  style: TextStyle(color: Colors.grey.shade700),
-  decoration: InputDecoration(
-    hintText: "Enter new expiration date",
-    hintStyle: TextStyle(color: Colors.grey.shade600),
-    filled: true,
-    fillColor: Colors.white.withValues(alpha: .08),
-    border: OutlineInputBorder(
+GestureDetector(
+  onTap: () async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+    );
+    if (pickedDate != null) {
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final formattedDate = "${months[pickedDate.month - 1]} ${pickedDate.day}, ${pickedDate.year}";
+      setStateDialog(() {
+        newExpirationController.text = formattedDate;
+      });
+    }
+  },
+  child: Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .08),
       borderRadius: BorderRadius.circular(10),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(
+      border: Border.all(
         color: Colors.white.withValues(alpha: .15),
       ),
     ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(
-        color: Theme.of(context).colorScheme.primary,
-      ),
-    ),
-    contentPadding: const EdgeInsets.symmetric(
-      horizontal: 14,
-      vertical: 14,
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            newExpirationController.text.isNotEmpty 
+                ? newExpirationController.text 
+                : "Select new expiration date",
+            style: TextStyle(
+              color: newExpirationController.text.isNotEmpty 
+                  ? Colors.white 
+                  : Colors.white.withValues(alpha: 0.6),
+            ),
+          ),
+        ),
+        Icon(Icons.calendar_today, size: 18, color: Colors.white.withValues(alpha: 0.6)),
+      ],
     ),
   ),
 ),
@@ -593,9 +612,10 @@ TextField(
                             await FilePicker.platform.pickFiles(
                           type: FileType.custom,
                           allowedExtensions: ['pdf'],
+                          withData: true,
                         );
 
-                        if (result != null) {
+                        if (result != null && result.files.isNotEmpty) {
 
                           selectedPdf = result.files.first;
 
@@ -667,16 +687,18 @@ TextField(
                                         "Please upload student ID PDF"),
                                   ),
                                 );
+                                
                                 return;
                               }
 
                               // Upload the ID card
                               final token = context.read<AuthProvider>().accessToken;
-                              if (token != null && selectedPdf!.path != null) {
+                              if (token != null && selectedPdf != null) {
                                 final url = await context.read<ProfileProvider>().uploadIdCard(
                                   token: token,
-                                  filePath: selectedPdf!.path!,
                                   fileName: selectedPdf!.name,
+                                  filePath: kIsWeb ? null : selectedPdf!.path,
+                                  fileBytes: selectedPdf!.bytes,
                                 );
                                 if (url != null) {
                                   setState(() {

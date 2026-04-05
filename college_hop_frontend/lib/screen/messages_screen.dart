@@ -15,7 +15,8 @@ class _ChatThread {
   final Color avatarColor;
   final String avatarLabel;
   final bool isVerified;
-  final bool isPinged;      // unread / active mention
+  final bool isPinged;      // active mention
+  final int unreadCount;
   final _ChatType type;
   final String? eventTag;   // group: event name sub-label
 
@@ -28,6 +29,7 @@ class _ChatThread {
     required this.avatarLabel,
     this.isVerified = false,
     this.isPinged = false,
+    this.unreadCount = 0,
     required this.type,
     this.eventTag,
   });
@@ -49,6 +51,7 @@ const _mockThreads = <_ChatThread>[
     name: 'Michael Kim',
     lastMessage: 'Did you book the hotel yet?',
     time: '15m ago',
+    unreadCount: 3,
     avatarColor: Color(0xFFEC407A),
     avatarLabel: 'M',
     isVerified: true,
@@ -59,6 +62,7 @@ const _mockThreads = <_ChatThread>[
     name: 'Hackathon @ IIT Deli',
     lastMessage: 'Alex: Can we split an Uber from the airport?',
     time: '1h ago',
+    unreadCount: 5,
     avatarColor: Color(0xFF26A69A),
     avatarLabel: 'H',
     type: _ChatType.group,
@@ -435,6 +439,7 @@ class _ThreadTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isGroup = thread.type == _ChatType.group;
+    final isUnread = thread.unreadCount > 0;
 
     return InkWell(
       onTap: () => Navigator.of(context).push(
@@ -503,7 +508,8 @@ class _ThreadTile extends StatelessWidget {
                               child: Text(
                                 thread.name,
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: isUnread ? FontWeight.w900 : FontWeight.w700,
+                                  color: isUnread ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withValues(alpha: 0.8),
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -563,10 +569,12 @@ class _ThreadTile extends StatelessWidget {
                         width: 65,
                         child: Text(
                           thread.time,
-                          textAlign: TextAlign.left,
+                          textAlign: TextAlign.right,
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color:
-                                theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                            color: isUnread
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                            fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -589,13 +597,40 @@ class _ThreadTile extends StatelessWidget {
                   const SizedBox(height: 4),
 
                   // last message
-                  Text(
-                    thread.lastMessage,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          thread.lastMessage,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: isUnread
+                                ? theme.colorScheme.onSurface
+                                : theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                            fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isUnread) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            thread.unreadCount > 99 ? '99+' : '${thread.unreadCount}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
