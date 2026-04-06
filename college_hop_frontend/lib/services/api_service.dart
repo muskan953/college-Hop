@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class ApiService {
@@ -146,15 +147,24 @@ class ApiService {
   /// Returns the response containing the file URL on success.
   static Future<http.StreamedResponse> uploadFile({
     required String token,
-    required String filePath,
     required String fileName,
     required String category, // "id_card" or "profile_photo"
+    String? filePath,
+    Uint8List? fileBytes,
   }) async {
     final url = Uri.parse("$baseUrl/upload");
     final request = http.MultipartRequest('POST', url);
     request.headers['Authorization'] = 'Bearer $token';
     request.fields['category'] = category;
-    request.files.add(await http.MultipartFile.fromPath('file', filePath, filename: fileName));
+    
+    if (fileBytes != null) {
+      request.files.add(http.MultipartFile.fromBytes('file', fileBytes, filename: fileName));
+    } else if (filePath != null) {
+      request.files.add(await http.MultipartFile.fromPath('file', filePath, filename: fileName));
+    } else {
+      throw Exception("Either filePath or fileBytes must be provided");
+    }
+    
     return await request.send();
   }
 

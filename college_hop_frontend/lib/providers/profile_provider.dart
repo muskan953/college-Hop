@@ -57,15 +57,17 @@ class ProfileProvider with ChangeNotifier {
   /// Upload a profile photo and return the URL on success, or null on failure.
   Future<String?> uploadProfilePhoto({
     required String token,
-    required String filePath,
     required String fileName,
+    String? filePath,
+    Uint8List? fileBytes,
   }) async {
     try {
       final streamed = await ApiService.uploadFile(
         token: token,
-        filePath: filePath,
         fileName: fileName,
         category: 'profile_photo',
+        filePath: filePath,
+        fileBytes: fileBytes,
       );
       if (streamed.statusCode == 200) {
         final body = await streamed.stream.bytesToString();
@@ -81,15 +83,17 @@ class ProfileProvider with ChangeNotifier {
   /// Upload an ID card PDF and return the URL on success, or null on failure.
   Future<String?> uploadIdCard({
     required String token,
-    required String filePath,
     required String fileName,
+    String? filePath,
+    Uint8List? fileBytes,
   }) async {
     try {
       final streamed = await ApiService.uploadFile(
         token: token,
-        filePath: filePath,
         fileName: fileName,
         category: 'id_card',
+        filePath: filePath,
+        fileBytes: fileBytes,
       );
       if (streamed.statusCode == 200) {
         final body = await streamed.stream.bytesToString();
