@@ -152,10 +152,9 @@ class ApiService {
     String? filePath,
     Uint8List? fileBytes,
   }) async {
-    final url = Uri.parse("$baseUrl/upload");
+    final url = Uri.parse("$baseUrl/upload?type=$category");
     final request = http.MultipartRequest('POST', url);
     request.headers['Authorization'] = 'Bearer $token';
-    request.fields['category'] = category;
     
     if (fileBytes != null) {
       request.files.add(http.MultipartFile.fromBytes('file', fileBytes, filename: fileName));
@@ -228,6 +227,12 @@ class ApiService {
         "Authorization": "Bearer $token",
       },
     );
+  }
+
+  /// GET /users/:id — fetch a user's public profile (no auth required)
+  static Future<http.Response> getPublicProfile(String userId) async {
+    final url = Uri.parse("$baseUrl/users/$userId");
+    return await http.get(url, headers: {"Content-Type": "application/json"});
   }
 }
 
