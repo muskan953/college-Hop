@@ -183,3 +183,29 @@ func (h *Handler) GetPreferences(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(prefs)
 }
+
+// GetPublicProfile handles GET /users/{id} — no auth required.
+func (h *Handler) GetPublicProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract user ID from path: /users/{id}
+	path := strings.TrimPrefix(r.URL.Path, "/users/")
+	userID := strings.Trim(path, "/")
+	if userID == "" {
+		http.Error(w, "missing user id", http.StatusBadRequest)
+		return
+	}
+
+	profile, err := h.repo.GetPublicProfile(r.Context(), userID)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(profile)
+}
+

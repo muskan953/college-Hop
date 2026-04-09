@@ -182,5 +182,8 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 	// Protected: peer matching
 	mux.Handle("/users/matches", authMW(http.HandlerFunc(groupsHandler.FindMatches)))
 
+	// Public: view any user's public profile GET /users/{id}
+	mux.HandleFunc("/users/", profileHandler.GetPublicProfile)
+
 	return mux
 }

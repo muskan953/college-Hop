@@ -9,6 +9,7 @@ import (
 type Repository interface {
 	UpsertProfile(ctx context.Context, userID string, req UpdateProfileRequest) error
 	GetProfile(ctx context.Context, userID string) (*ProfileResponse, error)
+	GetPublicProfile(ctx context.Context, userID string) (*PublicProfileResponse, error)
 	UpsertPreferences(ctx context.Context, userID string, req UpdatePreferencesRequest) error
 	GetPreferences(ctx context.Context, userID string) (*PreferencesResponse, error)
 }
@@ -28,39 +29,91 @@ func (r *PostgresRepository) UpsertProfile(ctx context.Context, userID string, r
 	}
 	defer tx.Rollback()
 
-	// upsert profile
-	_, err = tx.ExecContext(ctx, `
-	INSERT INTO profiles (
-		user_id, full_name, college_name, major, roll_number,
-		id_expiration, bio, profile_photo_url, college_id_card_url, alternate_email, updated_at
-	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-	ON CONFLICT (user_id) DO UPDATE SET
-		full_name = EXCLUDED.full_name,
-		college_name = EXCLUDED.college_name,
-		major = EXCLUDED.major,
-		roll_number = EXCLUDED.roll_number,
-		id_expiration = EXCLUDED.id_expiration,
-		bio = EXCLUDED.bio,
-		profile_photo_url = EXCLUDED.profile_photo_url,
-		college_id_card_url = EXCLUDED.college_id_card_url,
-		alternate_email = EXCLUDED.alternate_email,
-		updated_at = EXCLUDED.updated_at
-	`,
-		userID,
-		req.FullName,
-		req.CollegeName,
-		req.Major,
-		req.RollNumber,
-		req.IDExpiration,
-		req.Bio,
-		req.ProfilePhotoURL,
-		req.IDCardURL,
-		req.AlternateEmail,
-		time.Now(),
-	)
+	// Check if the ID card URL is changing so we know whether to reset status
+	var existingIDCardURL string
+	_ = tx.QueryRowContext(ctx, `SELECT COALESCE(college_id_card_url, '') FROM profiles WHERE user_id = $1`, userID).Scan(&existingIDCardURL)
+	idCardChanged := req.IDCardURL != "" && req.IDCardURL != existingIDCardURL
+
+	now := time.Now()
+
+	// upsert profile; conditionally update id_card_uploaded_at
+	if idCardChanged {
+		_, err = tx.ExecContext(ctx, `
+		INSERT INTO profiles (
+			user_id, full_name, college_name, major, roll_number,
+			id_expiration, bio, profile_photo_url, college_id_card_url, alternate_email, updated_at, id_card_uploaded_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		ON CONFLICT (user_id) DO UPDATE SET
+			full_name = EXCLUDED.full_name,
+			college_name = EXCLUDED.college_name,
+			major = EXCLUDED.major,
+			roll_number = EXCLUDED.roll_number,
+			id_expiration = EXCLUDED.id_expiration,
+			bio = EXCLUDED.bio,
+			profile_photo_url = EXCLUDED.profile_photo_url,
+			college_id_card_url = EXCLUDED.college_id_card_url,
+			alternate_email = EXCLUDED.alternate_email,
+			updated_at = EXCLUDED.updated_at,
+			id_card_uploaded_at = EXCLUDED.id_card_uploaded_at
+		`,
+			userID,
+			req.FullName,
+			req.CollegeName,
+			req.Major,
+			req.RollNumber,
+			req.IDExpiration,
+			req.Bio,
+			req.ProfilePhotoURL,
+			req.IDCardURL,
+			req.AlternateEmail,
+			now,
+			now,
+		)
+	} else {
+		_, err = tx.ExecContext(ctx, `
+		INSERT INTO profiles (
+			user_id, full_name, college_name, major, roll_number,
+			id_expiration, bio, profile_photo_url, college_id_card_url, alternate_email, updated_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		ON CONFLICT (user_id) DO UPDATE SET
+			full_name = EXCLUDED.full_name,
+			college_name = EXCLUDED.college_name,
+			major = EXCLUDED.major,
+			roll_number = EXCLUDED.roll_number,
+			id_expiration = EXCLUDED.id_expiration,
+			bio = EXCLUDED.bio,
+			profile_photo_url = EXCLUDED.profile_photo_url,
+			college_id_card_url = EXCLUDED.college_id_card_url,
+			alternate_email = EXCLUDED.alternate_email,
+			updated_at = EXCLUDED.updated_at
+		`,
+			userID,
+			req.FullName,
+			req.CollegeName,
+			req.Major,
+			req.RollNumber,
+			req.IDExpiration,
+			req.Bio,
+			req.ProfilePhotoURL,
+			req.IDCardURL,
+			req.AlternateEmail,
+			now,
+		)
+	}
 
 	if err != nil {
 		return err
+	}
+
+	// Reset verification status to pending when a new ID card is uploaded
+	if idCardChanged {
+		_, err = tx.ExecContext(ctx,
+			`UPDATE users SET status = 'pending' WHERE id = $1 AND status = 'verified'`,
+			userID,
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	// remove old interests
@@ -104,6 +157,7 @@ func (r *PostgresRepository) GetProfile(ctx context.Context, userID string) (*Pr
 
 	var profile ProfileResponse
 	var idExpiration sql.NullTime
+	var idCardUploadedAt sql.NullTime
 	var fullName, collegeName, major, rollNumber, bio, profilePhotoURL, idCardURL, alternateEmail sql.NullString
 
 	err := r.db.QueryRowContext(ctx, `
@@ -117,7 +171,8 @@ func (r *PostgresRepository) GetProfile(ctx context.Context, userID string) (*Pr
 			COALESCE(p.profile_photo_url, ''),
 			COALESCE(p.college_id_card_url, ''),
 			COALESCE(p.alternate_email, ''),
-		    COALESCE(u.status, '')
+		    COALESCE(u.status, ''),
+			p.id_card_uploaded_at
 		FROM users u
 		LEFT JOIN profiles p ON u.id = p.user_id
 		WHERE u.id = $1
@@ -132,6 +187,7 @@ func (r *PostgresRepository) GetProfile(ctx context.Context, userID string) (*Pr
 		&idCardURL,
 		&alternateEmail,
 		&profile.Status,
+		&idCardUploadedAt,
 	)
 
 	if err != nil {
@@ -153,6 +209,10 @@ func (r *PostgresRepository) GetProfile(ctx context.Context, userID string) (*Pr
 	if idExpiration.Valid {
 		profile.IDExpiration = idExpiration.Time.Format("2006-01-02")
 		profile.IsAlumni = idExpiration.Time.Before(time.Now())
+	}
+
+	if idCardUploadedAt.Valid {
+		profile.IDCardUploadedAt = idCardUploadedAt.Time.Format(time.RFC3339)
 	}
 
 	// Fetch interests
@@ -260,4 +320,65 @@ func (r *PostgresRepository) GetPreferences(ctx context.Context, userID string) 
 		return nil, err
 	}
 	return &prefs, nil
+}
+
+func (r *PostgresRepository) GetPublicProfile(ctx context.Context, userID string) (*PublicProfileResponse, error) {
+	var p PublicProfileResponse
+	var fullName, collegeName, major, bio, photoURL sql.NullString
+	var status string
+	var idExpiration sql.NullTime
+
+	err := r.db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(p.full_name, ''),
+			COALESCE(p.college_name, ''),
+			COALESCE(p.major, ''),
+			COALESCE(p.bio, ''),
+			COALESCE(p.profile_photo_url, ''),
+			COALESCE(u.status, 'pending'),
+			p.id_expiration
+		FROM users u
+		LEFT JOIN profiles p ON p.user_id = u.id
+		WHERE u.id = $1
+	`, userID).Scan(
+		&fullName, &collegeName, &major, &bio, &photoURL, &status, &idExpiration,
+	)
+	if err == sql.ErrNoRows {
+		return nil, sql.ErrNoRows
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	p.UserID = userID
+	p.FullName = fullName.String
+	p.CollegeName = collegeName.String
+	p.Major = major.String
+	p.Bio = bio.String
+	p.ProfilePhotoURL = photoURL.String
+	p.IsVerified = status == "verified"
+	if idExpiration.Valid {
+		p.IsAlumni = idExpiration.Time.Before(time.Now())
+	}
+
+	// Fetch interests
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT i.name FROM interests i
+		JOIN user_interests ui ON ui.interest_id = i.id
+		WHERE ui.user_id = $1
+	`, userID)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var interest string
+			if rows.Scan(&interest) == nil {
+				p.Interests = append(p.Interests, interest)
+			}
+		}
+	}
+	if p.Interests == nil {
+		p.Interests = []string{}
+	}
+
+	return &p, nil
 }

@@ -33,6 +33,11 @@ func NewLocalStorage(uploadDir string, baseURL string) (*LocalStorage, error) {
 func (s *LocalStorage) Upload(filename string, file io.Reader) (string, error) {
 	destPath := filepath.Join(s.uploadDir, filename)
 
+	// Ensure subdirectory exists (e.g. uploads/id_card/ or uploads/profile_photo/)
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		return "", fmt.Errorf("failed to create upload subdirectory: %w", err)
+	}
+
 	destFile, err := os.Create(destPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to create file: %w", err)

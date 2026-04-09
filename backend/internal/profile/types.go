@@ -23,6 +23,7 @@ type ProfileResponse struct {
 	Bio              string   `json:"bio"`
 	ProfilePhotoURL  string   `json:"profile_photo_url"`
 	IDCardURL        string   `json:"college_id_card_url"`
+	IDCardUploadedAt string   `json:"id_card_uploaded_at,omitempty"`
 	AlternateEmail   string   `json:"alternate_email"`
 	Interests        []string `json:"interests"`
 	Status           string   `json:"status"`
@@ -30,6 +31,19 @@ type ProfileResponse struct {
 	EventsCount      int      `json:"events_count"`
 	GroupsCount      int      `json:"groups_count"`
 	ConnectionsCount int      `json:"connections_count"`
+}
+
+// PublicProfileResponse contains only fields safe to expose without authentication.
+type PublicProfileResponse struct {
+	UserID          string   `json:"user_id"`
+	FullName        string   `json:"full_name"`
+	CollegeName     string   `json:"college_name"`
+	Major           string   `json:"major"`
+	Bio             string   `json:"bio"`
+	ProfilePhotoURL string   `json:"profile_photo_url"`
+	Interests       []string `json:"interests"`
+	IsAlumni        bool     `json:"is_alumni"`
+	IsVerified      bool     `json:"is_verified"`
 }
 
 type UpdatePreferencesRequest struct {
