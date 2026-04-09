@@ -1,4 +1,5 @@
 import 'package:college_hop/screen/account_info.dart';
+import 'package:college_hop/screen/splash_screen.dart';
 import 'package:college_hop/screen/verify_student_id.dart';
 import 'package:flutter/material.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
@@ -63,6 +64,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (token != null) {
       context.read<ProfileProvider>().updatePreferences(token, {key: value});
     }
+  }
+
+  Future<void> _doLogout() async {
+    await context.read<AuthProvider>().logout();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const _SplashRedirect()),
+      (_) => false,
+    );
   }
 
   @override
@@ -270,7 +280,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                onTap: () {},
+                onTap: _doLogout,
               ),
             ),
 
@@ -395,4 +405,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ),
   );
 }
+}
+
+/// Clears the nav stack and sends the user back to SplashScreen after logout.
+class _SplashRedirect extends StatefulWidget {
+  const _SplashRedirect();
+  @override State<_SplashRedirect> createState() => _SplashRedirectState();
+}
+class _SplashRedirectState extends State<_SplashRedirect> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const SplashScreen()),
+        (_) => false,
+      );
+    });
+  }
+  @override Widget build(BuildContext context) => const SizedBox.shrink();
 }

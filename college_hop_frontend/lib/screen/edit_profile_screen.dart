@@ -556,8 +556,7 @@ GestureDetector(
       lastDate: DateTime(2100),
     );
     if (pickedDate != null) {
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      final formattedDate = "${months[pickedDate.month - 1]} ${pickedDate.day}, ${pickedDate.year}";
+      final formattedDate = "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
       setStateDialog(() {
         newExpirationController.text = formattedDate;
       });

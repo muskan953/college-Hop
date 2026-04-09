@@ -1,10 +1,14 @@
 import 'package:college_hop/theme/app_scaffold.dart';
 import 'package:college_hop/screen/setting_screen.dart';
 import 'package:college_hop/screen/edit_profile_screen.dart';
+import 'package:college_hop/screen/splash_screen.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:college_hop/providers/auth_provider.dart';
 import 'package:college_hop/providers/profile_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -30,6 +34,160 @@ class _ProfileScreenState extends State<ProfileScreen> {
         prov.fetchGroups(token);
       }
     });
+  }
+
+  void _shareProfile(Map<String, dynamic>? profile) {
+    final userId  = (profile?['user_id']  as String?) ?? '';
+    final name    = (profile?['full_name'] as String?)?.trim() ?? 'CollegeHop User';
+    final college = (profile?['college_name'] as String?) ?? '';
+
+    // Builds the link from whatever host the app is currently running on
+    final baseUrl = kIsWeb ? Uri.base.origin : 'http://localhost:8080';
+    final profileLink = '$baseUrl/profile/$userId';
+    final shareText   = Uri.encodeComponent(
+      '${Uri.encodeComponent('')}Check out $name\'s profile on CollegeHop!\n$profileLink',
+    );
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        bool copied = false;
+        return StatefulBuilder(
+          builder: (ctx, setS) => Padding(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+
+                // Handle bar
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: .3),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+
+                Text('Share Profile', style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                if (college.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(college, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                ],
+
+                const SizedBox(height: 20),
+
+                // Profile link row
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.link, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          profileLink,
+                          style: const TextStyle(fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: profileLink));
+                          setS(() => copied = true);
+                          Future.delayed(const Duration(seconds: 2), () {
+                            if (ctx.mounted) setS(() => copied = false);
+                          });
+                        },
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: copied
+                              ? const Icon(Icons.check_circle, color: Colors.green, size: 20, key: ValueKey('check'))
+                              : const Icon(Icons.copy, size: 20, key: ValueKey('copy')),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                Text('Share via', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade500)),
+                const SizedBox(height: 14),
+
+                // Quick-share chips
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _shareChip(
+                      ctx,
+                      icon: Image.network(
+                        'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg',
+                        width: 28, height: 28,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.chat, size: 28, color: Color(0xFF25D366)),
+                      ),
+                      label: 'WhatsApp',
+                      onTap: () => launchUrl(Uri.parse('https://wa.me/?text=$shareText'), mode: LaunchMode.externalApplication),
+                    ),
+                    _shareChip(
+                      ctx,
+                      icon: const Icon(Icons.mail_outline, size: 28, color: Colors.red),
+                      label: 'Email',
+                      onTap: () => launchUrl(
+                        Uri.parse('mailto:?subject=${Uri.encodeComponent('Check out $name on CollegeHop')}&body=${Uri.encodeComponent('$name\'s profile:\n$profileLink')}'),
+                      ),
+                    ),
+                    _shareChip(
+                      ctx,
+                      icon: const Icon(Icons.copy_outlined, size: 28),
+                      label: 'Copy Link',
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: profileLink));
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Link copied!'), behavior: SnackBarBehavior.floating, duration: Duration(seconds: 2)),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _shareChip(BuildContext context, {required Widget icon, required String label, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 58, height: 58,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Center(child: icon),
+          ),
+          const SizedBox(height: 6),
+          Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
   }
 
   @override
@@ -186,26 +344,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.arrow_back, color: Colors.white),
-                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.share_outlined, color: Colors.white, size: 22),
+                            onPressed: () => _shareProfile(profile),
                           ),
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.share_outlined, color: Colors.white, size: 22),
-                                onPressed: () {},
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 22),
-                                onPressed: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                                ),
-                              ),
-                            ],
+                          IconButton(
+                            icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 22),
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                            ),
                           ),
                         ],
                       ),
@@ -369,7 +519,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         Center(
           child: TextButton.icon(
-            onPressed: () {},
+            onPressed: () async {
+              await context.read<AuthProvider>().logout();
+              if (!context.mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const SplashScreen()),
+                (_) => false,
+              );
+            },
             icon: const Icon(Icons.logout, color: Colors.red, size: 18),
             label: const Text("Log Out", style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
           ),
