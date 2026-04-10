@@ -12,6 +12,8 @@ type Repository interface {
 	GetPublicProfile(ctx context.Context, userID string) (*PublicProfileResponse, error)
 	UpsertPreferences(ctx context.Context, userID string, req UpdatePreferencesRequest) error
 	GetPreferences(ctx context.Context, userID string) (*PreferencesResponse, error)
+	CreateConnection(ctx context.Context, userID1, userID2 string) error
+	SaveAlternateEmail(ctx context.Context, userID, email string) error
 }
 
 type PostgresRepository struct {
@@ -381,4 +383,21 @@ func (r *PostgresRepository) GetPublicProfile(ctx context.Context, userID string
 	}
 
 	return &p, nil
+}
+
+func (r *PostgresRepository) CreateConnection(ctx context.Context, userID1, userID2 string) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO connections (user_id_1, user_id_2, status, created_at)
+		VALUES ($1, $2, 'connected', NOW())
+		ON CONFLICT (user_id_1, user_id_2) DO NOTHING
+	`, userID1, userID2)
+	return err
+}
+
+func (r *PostgresRepository) SaveAlternateEmail(ctx context.Context, userID, email string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE profiles SET alternate_email = $1, updated_at = NOW()
+		WHERE user_id = $2
+	`, email, userID)
+	return err
 }

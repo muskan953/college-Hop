@@ -11,10 +11,27 @@ import 'package:college_hop/providers/event_provider.dart';
 
 
 void main() {
+  // Detect deep link BEFORE building any widgets
+  String? initialDeepLink;
+  if (kIsWeb) {
+    final path = Uri.base.path; // e.g. "/profile/5db68562-..."
+    final match = RegExp(r'^/profile/([^/]+)$').firstMatch(path);
+    if (match != null) {
+      initialDeepLink = '/profile/${match.group(1)}';
+    }
+  }
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) {
+          final auth = AuthProvider();
+          // Set deep link synchronously BEFORE SplashScreen reads it
+          if (initialDeepLink != null) {
+            auth.pendingDeepLink = initialDeepLink;
+          }
+          return auth;
+        }),
         ChangeNotifierProvider(create: (_) => SignUpProvider()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
         ChangeNotifierProvider(create: (_) => EventProvider()),
@@ -27,28 +44,16 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  /// On web, detect if the browser URL is /profile/:id and return that userId.
-  String? _initialProfileId() {
-    if (!kIsWeb) return null;
-    final path = Uri.base.path; // e.g. "/profile/5db68562-..."
-    final match = RegExp(r'^/profile/([^/]+)$').firstMatch(path);
-    return match?.group(1);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final initialUserId = _initialProfileId();
-
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'College Hop',
       theme: lightTheme,
       darkTheme: darkTheme,
       themeMode: ThemeMode.system,
-      // If opened on a /profile/:id URL go directly to the public profile page.
-      home: initialUserId != null
-          ? PublicProfileScreen(userId: initialUserId)
-          : const SplashScreen(),
+      // Always start at SplashScreen — it handles auth checks and deep link routing
+      home: const SplashScreen(),
       onGenerateRoute: (settings) {
         final uri = Uri.tryParse(settings.name ?? '');
         if (uri != null) {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 import 'package:college_hop/providers/auth_provider.dart';
 import 'package:college_hop/providers/profile_provider.dart';
+import 'package:college_hop/services/api_service.dart';
 
 class AccountInformationScreen extends StatefulWidget {
   const AccountInformationScreen({super.key});
@@ -20,14 +21,14 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
   }
 
   void _showChangeEmailDialog() {
-    final controller = TextEditingController(text: _alternateEmail);
+    final emailController = TextEditingController(text: _alternateEmail);
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Change Alternate Email"),
         content: TextField(
-          controller: controller,
+          controller: emailController,
           keyboardType: TextInputType.emailAddress,
           decoration: const InputDecoration(
             labelText: "New Alternate Email",
@@ -42,30 +43,11 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
             child: const Text("Cancel"),
           ),
           ElevatedButton(
-            onPressed: () async {
-              final newEmail = controller.text.trim();
+            onPressed: () {
+              final newEmail = emailController.text.trim();
               if (newEmail.isNotEmpty && newEmail.contains('@')) {
                 Navigator.pop(ctx);
-                // Persist alternate email to backend
-                final token = context.read<AuthProvider>().accessToken;
-                final profileProvider = context.read<ProfileProvider>();
-                final existing = profileProvider.profileData;
-                if (token != null && existing != null) {
-                  await profileProvider.updateProfile(token, {
-                    ...existing,
-                    'alternate_email': newEmail,
-                    'interests': List<String>.from(existing['interests'] ?? []),
-                  });
-                }
-                setState(() {}); // rebuild to show new alternate email
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Alternate email updated successfully!"),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
+                _requestOTPAndVerify(newEmail);
               } else {
                 ScaffoldMessenger.of(ctx).showSnackBar(
                   const SnackBar(
@@ -75,9 +57,122 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
                 );
               }
             },
-            child: const Text("Save"),
+            child: const Text("Send OTP"),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _requestOTPAndVerify(String email) async {
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) return;
+
+    // Request OTP
+    final res = await ApiService.requestAlternateEmailOTP(token, email);
+    if (!mounted) return;
+
+    if (res.statusCode != 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res.statusCode == 429
+              ? "Please wait before requesting another OTP."
+              : "Failed to send OTP. Try again."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Show OTP input dialog
+    _showOTPDialog(email);
+  }
+
+  void _showOTPDialog(String email) {
+    final otpController = TextEditingController();
+    bool verifying = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text("Verify OTP"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "We sent a verification code to\n$email",
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: otpController,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 20, letterSpacing: 8),
+                decoration: const InputDecoration(
+                  hintText: "000000",
+                  border: OutlineInputBorder(),
+                  counterText: '',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: verifying ? null : () => Navigator.pop(ctx),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: verifying
+                  ? null
+                  : () async {
+                      final otp = otpController.text.trim();
+                      if (otp.length != 6) return;
+
+                      setDialogState(() => verifying = true);
+
+                      final token = context.read<AuthProvider>().accessToken;
+                      if (token == null) return;
+
+                      final res = await ApiService.verifyAlternateEmail(token, email, otp);
+
+                      if (!mounted) return;
+                      Navigator.pop(ctx);
+
+                      if (res.statusCode == 200) {
+                        // Refresh profile to show new email
+                        await context.read<ProfileProvider>().fetchProfile(token);
+                        if (mounted) {
+                          setState(() {}); // rebuild
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Alternate email verified and saved!"),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Invalid or expired OTP. Try again."),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+              child: verifying
+                  ? const SizedBox(
+                      height: 16, width: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text("Verify"),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -250,9 +345,27 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
                       color: theme.colorScheme.onSurface.withValues(alpha: .04),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Text(
-                      alternateEmail,
-                      style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: .8), fontSize: 13),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            alternateEmail.isEmpty ? 'Not set' : alternateEmail,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(alpha: alternateEmail.isEmpty ? .4 : .8),
+                              fontSize: 13,
+                              fontStyle: alternateEmail.isEmpty ? FontStyle.italic : FontStyle.normal,
+                            ),
+                          ),
+                        ),
+                        if (alternateEmail.isNotEmpty) ...[
+                          const Icon(Icons.check_circle, color: Colors.green, size: 14),
+                          const SizedBox(width: 4),
+                          const Text(
+                            "Verified",
+                            style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -260,7 +373,7 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _showChangeEmailDialog,
-                      child: const Text("Change Alternate Email"),
+                      child: Text(alternateEmail.isEmpty ? "Add Alternate Email" : "Change Alternate Email"),
                     ),
                   ),
                 ],
@@ -302,11 +415,15 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
                   ),
 
                   Text(
-                    "• Alternate email is used for account recovery after graduation.",
+                    "• Alternate email is verified via OTP to ensure you own it.",
                   ),
 
                   Text(
-                    "• You can receive notifications on either email address.",
+                    "• You can log in using either your primary or alternate email.",
+                  ),
+
+                  Text(
+                    "• Alternate email is used for account recovery after graduation.",
                   ),
                 ],
               ),
@@ -319,5 +436,3 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
     );
   }
 }
-
-

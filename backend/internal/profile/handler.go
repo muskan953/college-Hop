@@ -2,6 +2,7 @@ package profile
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -10,11 +11,12 @@ import (
 )
 
 type Handler struct {
-	repo Repository
+	repo     Repository
+	authRepo auth.Repository
 }
 
-func NewHandler(repo Repository) *Handler {
-	return &Handler{repo: repo}
+func NewHandler(repo Repository, authRepo auth.Repository) *Handler {
+	return &Handler{repo: repo, authRepo: authRepo}
 }
 
 // IsValidUploadURL checks that the URL is a valid absolute URL.
@@ -184,7 +186,7 @@ func (h *Handler) GetPreferences(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(prefs)
 }
 
-// GetPublicProfile handles GET /users/{id} — no auth required.
+// GetPublicProfile handles GET /users/{id} — requires auth (app-only access).
 func (h *Handler) GetPublicProfile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -209,3 +211,147 @@ func (h *Handler) GetPublicProfile(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(profile)
 }
 
+// ConnectUser handles POST /users/{id}/connect — creates a connection between
+// the authenticated user and the target user.
+func (h *Handler) ConnectUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Extract target user ID: /users/{id}/connect
+	path := strings.TrimPrefix(r.URL.Path, "/users/")
+	path = strings.TrimSuffix(path, "/connect")
+	targetID := strings.Trim(path, "/")
+	if targetID == "" {
+		http.Error(w, "missing user id", http.StatusBadRequest)
+		return
+	}
+
+	if targetID == user.ID {
+		http.Error(w, "cannot connect with yourself", http.StatusBadRequest)
+		return
+	}
+
+	err := h.repo.CreateConnection(r.Context(), user.ID, targetID)
+	if err != nil {
+		// Duplicate connections are silently ignored by the upsert
+		http.Error(w, "failed to create connection", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"message": "connected"})
+}
+
+// RequestAlternateEmailOTP handles POST /me/alternate-email/request-otp.
+// Sends an OTP to the proposed alternate email so we can verify ownership.
+func (h *Handler) RequestAlternateEmailOTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	_, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	req.Email = strings.TrimSpace(req.Email)
+	if req.Email == "" || !strings.Contains(req.Email, "@") {
+		http.Error(w, "invalid email address", http.StatusBadRequest)
+		return
+	}
+
+	// Rate-limit
+	allowed, err := h.authRepo.CanRequestOTP(r.Context(), req.Email)
+	if err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	if !allowed {
+		http.Error(w, "please wait before requesting another OTP", http.StatusTooManyRequests)
+		return
+	}
+
+	otp, err := auth.GenerateOTP()
+	if err != nil {
+		http.Error(w, "failed to generate OTP", http.StatusInternalServerError)
+		return
+	}
+
+	otpHash := auth.HashOTP(otp)
+	expiresAt := auth.OTPExpiry()
+
+	if err := h.authRepo.SaveOTP(r.Context(), req.Email, otpHash, expiresAt); err != nil {
+		http.Error(w, "failed to save OTP", http.StatusInternalServerError)
+		return
+	}
+
+	// TEMP: log OTP (remove in production)
+	log.Printf("Alternate email OTP for %s: %s", req.Email, otp)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "OTP sent"})
+}
+
+// VerifyAlternateEmail handles POST /me/alternate-email/verify.
+// Verifies the OTP and saves the alternate email to the user's profile.
+func (h *Handler) VerifyAlternateEmail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		Email string `json:"email"`
+		OTP   string `json:"otp"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	req.Email = strings.TrimSpace(req.Email)
+	if req.Email == "" || req.OTP == "" {
+		http.Error(w, "email and otp are required", http.StatusBadRequest)
+		return
+	}
+
+	otpHash := auth.HashOTP(req.OTP)
+	if err := h.authRepo.VerifyOTP(r.Context(), req.Email, otpHash); err != nil {
+		http.Error(w, "invalid or expired OTP", http.StatusUnauthorized)
+		return
+	}
+
+	// OTP verified — persist the alternate email
+	if err := h.repo.SaveAlternateEmail(r.Context(), user.ID, req.Email); err != nil {
+		http.Error(w, "failed to save alternate email", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "alternate email verified and saved"})
+}

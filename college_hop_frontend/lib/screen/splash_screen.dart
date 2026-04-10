@@ -1,4 +1,5 @@
 import 'package:college_hop/mainn_screen.dart';
+import 'package:college_hop/screen/public_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:college_hop/providers/auth_provider.dart';
@@ -58,6 +59,20 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     if (auth.isAuthenticated) {
+      // Check for pending deep link
+      final deepLink = auth.consumePendingDeepLink();
+      if (deepLink != null) {
+        final match = RegExp(r'^/profile/([^/]+)$').firstMatch(deepLink);
+        if (match != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PublicProfileScreen(userId: match.group(1)!),
+            ),
+          );
+          return;
+        }
+      }
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const MainnScreen()),

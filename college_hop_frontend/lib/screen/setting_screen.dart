@@ -18,7 +18,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
 
-  bool showLocation = true;
   bool pushNotifications = true;
   bool emailNotifications = true;
   bool newMatchAlerts = true;
@@ -32,7 +31,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final prefs = context.read<ProfileProvider>().preferencesData;
       if (prefs != null) {
         setState(() {
-          showLocation = (prefs['show_location'] as bool?) ?? true;
           pushNotifications = (prefs['push_notifications'] as bool?) ?? true;
           emailNotifications = (prefs['email_notifications'] as bool?) ?? true;
           newMatchAlerts = (prefs['new_match_alerts'] as bool?) ?? true;
@@ -46,7 +44,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             final fetchedPrefs = context.read<ProfileProvider>().preferencesData;
             if (fetchedPrefs != null && mounted) {
               setState(() {
-                showLocation = (fetchedPrefs['show_location'] as bool?) ?? true;
                 pushNotifications = (fetchedPrefs['push_notifications'] as bool?) ?? true;
                 emailNotifications = (fetchedPrefs['email_notifications'] as bool?) ?? true;
                 newMatchAlerts = (fetchedPrefs['new_match_alerts'] as bool?) ?? true;
@@ -144,31 +141,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                      builder: (context) => const VerifyStudentIDScreen(),
                   ),
                 );
-              },
-            ),
-
-            const SizedBox(height: 20),
-
-            /// PRIVACY
-            _sectionTitle(theme, "PRIVACY"),
-
-            _settingsTile(
-              theme,
-              icon: Icons.visibility_outlined,
-              title: "Profile Visibility",
-              subtitle: "Control who can see your profile",
-              onTap: () {},
-            ),
-
-            _switchTile(
-              theme,
-              icon: Icons.location_on_outlined,
-              title: "Show Location",
-              subtitle: "Display city on profile",
-              value: showLocation,
-              onChanged: (value) {
-                setState(() => showLocation = value);
-                _persistPreference('show_location', value);
               },
             ),
 

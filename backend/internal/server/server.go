@@ -32,7 +32,7 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 	mux.HandleFunc("/auth/refresh", authHandler.Refresh)
 	mux.HandleFunc("/auth/logout", authHandler.Logout)
 
-	profileHandler := profile.NewHandler(profileRepo)
+	profileHandler := profile.NewHandler(profileRepo, authRepo)
 
 	mux.Handle("/me", authMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
@@ -57,6 +57,10 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 		}
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	})))
+
+	// Protected: alternate email verification
+	mux.Handle("/me/alternate-email/request-otp", authMW(http.HandlerFunc(profileHandler.RequestAlternateEmailOTP)))
+	mux.Handle("/me/alternate-email/verify", authMW(http.HandlerFunc(profileHandler.VerifyAlternateEmail)))
 
 	// Upload route (protected by auth)
 	uploadHandler := upload.NewHandler(store)
@@ -182,8 +186,19 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 	// Protected: peer matching
 	mux.Handle("/users/matches", authMW(http.HandlerFunc(groupsHandler.FindMatches)))
 
-	// Public: view any user's public profile GET /users/{id}
-	mux.HandleFunc("/users/", profileHandler.GetPublicProfile)
+	// Protected: view any user's profile GET /users/{id} — requires auth so
+	// profiles can't be viewed outside the app.
+	mux.Handle("/users/", authMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		switch {
+		case strings.HasSuffix(path, "/connect") && r.Method == http.MethodPost:
+			profileHandler.ConnectUser(w, r)
+		case r.Method == http.MethodGet:
+			profileHandler.GetPublicProfile(w, r)
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	})))
 
 	return mux
 }

@@ -16,10 +16,25 @@ class AuthProvider with ChangeNotifier {
   /// A Future that completes once stored tokens have been loaded.
   Future<void> get initialized => _initCompleter.future;
 
+  String? _pendingDeepLink;
+
   String? get accessToken => _accessToken;
   String? get email => _email;
   String? get userId => _userId;
   bool get isAuthenticated => _accessToken != null;
+
+  /// Store a deep link path (e.g. "/profile/abc") to redirect after login.
+  String? get pendingDeepLink => _pendingDeepLink;
+  set pendingDeepLink(String? value) {
+    _pendingDeepLink = value;
+  }
+
+  /// Returns and clears the pending deep link (one-time consumption).
+  String? consumePendingDeepLink() {
+    final link = _pendingDeepLink;
+    _pendingDeepLink = null;
+    return link;
+  }
 
   AuthProvider() {
     _loadTokens();

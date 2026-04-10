@@ -229,10 +229,48 @@ class ApiService {
     );
   }
 
-  /// GET /users/:id — fetch a user's public profile (no auth required)
-  static Future<http.Response> getPublicProfile(String userId) async {
+  /// GET /users/:id — fetch a user's public profile (requires auth)
+  static Future<http.Response> getPublicProfile(String token, String userId) async {
     final url = Uri.parse("$baseUrl/users/$userId");
-    return await http.get(url, headers: {"Content-Type": "application/json"});
+    return await http.get(url, headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    });
+  }
+
+  /// POST /users/:id/connect — connect with another user
+  static Future<http.Response> connectUser(String token, String userId) async {
+    final url = Uri.parse("$baseUrl/users/$userId/connect");
+    return await http.post(url, headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    });
+  }
+
+  /// POST /me/alternate-email/request-otp — request OTP for alternate email verification
+  static Future<http.Response> requestAlternateEmailOTP(String token, String email) async {
+    final url = Uri.parse("$baseUrl/me/alternate-email/request-otp");
+    return await http.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({"email": email}),
+    );
+  }
+
+  /// POST /me/alternate-email/verify — verify OTP and save alternate email
+  static Future<http.Response> verifyAlternateEmail(String token, String email, String otp) async {
+    final url = Uri.parse("$baseUrl/me/alternate-email/verify");
+    return await http.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({"email": email, "otp": otp}),
+    );
   }
 }
 

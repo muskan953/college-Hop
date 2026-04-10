@@ -37,7 +37,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _shareProfile(Map<String, dynamic>? profile) {
-    final userId  = (profile?['user_id']  as String?) ?? '';
+    // Use AuthProvider.userId (from JWT) as the authoritative source
+    final authUserId = context.read<AuthProvider>().userId ?? '';
+    final userId  = authUserId.isNotEmpty ? authUserId : ((profile?['user_id'] as String?) ?? '');
     final name    = (profile?['full_name'] as String?)?.trim() ?? 'CollegeHop User';
     final college = (profile?['college_name'] as String?) ?? '';
 

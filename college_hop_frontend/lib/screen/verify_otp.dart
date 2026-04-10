@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:college_hop/mainn_screen.dart';
+import 'package:college_hop/screen/public_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:college_hop/providers/auth_provider.dart';
@@ -68,6 +69,18 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
     return "00:$seconds";
   }
 
+  /// Determines the post-login destination, honoring any pending deep link.
+  Widget _postLoginDestination(AuthProvider auth) {
+    final deepLink = auth.consumePendingDeepLink();
+    if (deepLink != null) {
+      final match = RegExp(r'^/profile/([^/]+)$').firstMatch(deepLink);
+      if (match != null) {
+        return PublicProfileScreen(userId: match.group(1)!);
+      }
+    }
+    return const MainnScreen();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -106,7 +119,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
               // Centered subtitle
               Center(
                 child: Text(
-                  "We’ve sent a 6-digit verification code to\nyour email. Enter the code below to verify your email.",
+                  "We've sent a 6-digit verification code to\nyour email. Enter the code below to verify your email.",
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
@@ -201,7 +214,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
 
                           if (success) {
                             Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(builder: (context) => const MainnScreen()),
+                              MaterialPageRoute(builder: (context) => _postLoginDestination(authProvider)),
                               (route) => false,
                             );
                           } else {

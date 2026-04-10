@@ -145,7 +145,19 @@ func (r *PostgresRepository) CanRequestOTP(ctx context.Context, email string) (b
 func (r *PostgresRepository) GetOrCreateUser(ctx context.Context, email string) (string, error) {
 	var id string
 
+	// First, check if email matches an existing user's alternate_email
 	err := r.db.QueryRowContext(ctx,
+		`SELECT u.id FROM users u
+		 JOIN profiles p ON p.user_id = u.id
+		 WHERE p.alternate_email = $1`,
+		email,
+	).Scan(&id)
+	if err == nil {
+		return id, nil // found via alternate email
+	}
+
+	// Otherwise, create/get by primary email as before
+	err = r.db.QueryRowContext(ctx,
 		`INSERT INTO users (id, email)
 		 VALUES ($1, $2)
 		 ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
@@ -194,7 +206,11 @@ func (r *PostgresRepository) DeleteRefreshToken(ctx context.Context, tokenHash s
 func (r *PostgresRepository) UserExists(ctx context.Context, email string) (bool, error) {
 	var exists bool
 	err := r.db.QueryRowContext(ctx,
-		`SELECT EXISTS (SELECT 1 FROM users WHERE email = $1)`,
+		`SELECT EXISTS (
+			SELECT 1 FROM users WHERE email = $1
+			UNION
+			SELECT 1 FROM profiles WHERE alternate_email = $1
+		)`,
 		email,
 	).Scan(&exists)
 	return exists, err

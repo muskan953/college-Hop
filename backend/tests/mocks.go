@@ -113,6 +113,15 @@ func (m *MockProfileRepository) UpsertPreferences(ctx context.Context, userID st
 func (m *MockProfileRepository) GetPreferences(ctx context.Context, userID string) (*profile.PreferencesResponse, error) {
 	return &profile.PreferencesResponse{}, nil
 }
+func (m *MockProfileRepository) GetPublicProfile(ctx context.Context, userID string) (*profile.PublicProfileResponse, error) {
+	return &profile.PublicProfileResponse{}, nil
+}
+func (m *MockProfileRepository) CreateConnection(ctx context.Context, userID1, userID2 string) error {
+	return nil
+}
+func (m *MockProfileRepository) SaveAlternateEmail(ctx context.Context, userID, email string) error {
+	return nil
+}
 
 // ensure MockFileStorage implements storage.FileStorage
 type MockFileStorage struct {

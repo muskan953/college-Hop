@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:college_hop/providers/auth_provider.dart';
 import 'package:college_hop/services/api_service.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 
@@ -15,6 +17,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   Map<String, dynamic>? _profile;
   bool _loading = true;
   String? _error;
+  bool _connecting = false;
+  bool _connected = false;
 
   @override
   void initState() {
@@ -24,7 +28,12 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
   Future<void> _load() async {
     try {
-      final res = await ApiService.getPublicProfile(widget.userId);
+      final token = context.read<AuthProvider>().accessToken;
+      if (token == null) {
+        setState(() { _error = 'Not authenticated.'; _loading = false; });
+        return;
+      }
+      final res = await ApiService.getPublicProfile(token, widget.userId);
       if (res.statusCode == 200) {
         setState(() {
           _profile = jsonDecode(res.body) as Map<String, dynamic>;
@@ -35,6 +44,43 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       }
     } catch (_) {
       setState(() { _error = 'Could not load profile.'; _loading = false; });
+    }
+  }
+
+  Future<void> _connect() async {
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) return;
+
+    setState(() => _connecting = true);
+    try {
+      final res = await ApiService.connectUser(token, widget.userId);
+      if (res.statusCode == 201 && mounted) {
+        setState(() { _connected = true; _connecting = false; });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Connected successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else if (mounted) {
+        setState(() => _connecting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not connect. Try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _connecting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Network error. Try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -148,6 +194,32 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                         ),
                       ),
                     ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Connect button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: (_connecting || _connected) ? null : _connect,
+                      icon: Icon(
+                        _connected ? Icons.check_circle : Icons.person_add_alt_1,
+                      ),
+                      label: Text(
+                        _connected
+                            ? 'Connected'
+                            : _connecting
+                                ? 'Connecting...'
+                                : 'Connect',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
                   ),
 
                   const SizedBox(height: 24),

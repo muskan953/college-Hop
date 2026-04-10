@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:college_hop/mainn_screen.dart';
+import 'package:college_hop/screen/public_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -274,8 +275,16 @@ class _ProfileSetupScreenState
                                   actions: [
                                     TextButton(
                                       onPressed: () {
+                                        final deepLink = authProvider.consumePendingDeepLink();
+                                        Widget destination = const MainnScreen();
+                                        if (deepLink != null) {
+                                          final match = RegExp(r'^/profile/([^/]+)$').firstMatch(deepLink);
+                                          if (match != null) {
+                                            destination = PublicProfileScreen(userId: match.group(1)!);
+                                          }
+                                        }
                                         Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(builder: (context) => const MainnScreen()),
+                              MaterialPageRoute(builder: (context) => destination),
                               (route) => false,
                             );
                                       },
