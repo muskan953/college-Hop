@@ -11,7 +11,9 @@ VALUES (
     'https://example.com',
     'approved',
     'Hackathon'
-) ON CONFLICT (id) DO UPDATE SET start_date = EXCLUDED.start_date;
+) ON CONFLICT (id) DO UPDATE SET 
+    start_date = NOW() + INTERVAL '7 days',
+    venue = EXCLUDED.venue;
 
 -- 2. Create 5 dummy users
 INSERT INTO users (id, email)
@@ -72,4 +74,30 @@ INSERT INTO group_members (group_id, user_id) VALUES
     ('b0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002'),
     ('b0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000004'),
     ('b0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000005')
+ON CONFLICT DO NOTHING;
+
+-- 9. Create a specific test friend to connect with txntest@nitw.ac.in
+INSERT INTO users (id, email) VALUES 
+    ('a0000000-0000-0000-0000-000000000abc', 'friend@example.edu') 
+ON CONFLICT DO NOTHING;
+
+INSERT INTO profiles (user_id, full_name, college_name, major, roll_number, id_expiration, bio, profile_photo_url) VALUES 
+    ('a0000000-0000-0000-0000-000000000abc', 'Test Friend', 'NITW', 'Computer Science', 'T01', '2028-01-01', 'Here to test connections and chat', 'https://i.pravatar.cc/150?u=friend') 
+ON CONFLICT DO NOTHING;
+
+-- 10. Connect the friend to the logged in user (in both directions for safety, though only one is technically needed depending on query logic)
+INSERT INTO connections (user_id_1, user_id_2, status)
+SELECT 
+    'a0000000-0000-0000-0000-000000000abc',
+    id,
+    'connected'
+FROM users WHERE email = 'txntest@nitw.ac.in'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO connections (user_id_1, user_id_2, status)
+SELECT 
+    id,
+    'a0000000-0000-0000-0000-000000000abc',
+    'connected'
+FROM users WHERE email = 'txntest@nitw.ac.in'
 ON CONFLICT DO NOTHING;
