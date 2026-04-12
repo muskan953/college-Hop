@@ -13,6 +13,7 @@ import 'package:college_hop/services/api_service.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 import 'package:college_hop/screen/connect_profile_screen.dart';
 import 'package:college_hop/widgets/select_event_sheet.dart';
+import 'package:college_hop/widgets/custom_app_bar.dart';
 
 class MyEvent extends StatefulWidget {
   const MyEvent({super.key});
@@ -128,8 +129,7 @@ class _MyEventState extends State<MyEvent> {
         backgroundColor: theme.colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
-      body: SafeArea(
-        child: RefreshIndicator(
+      body: RefreshIndicator(
           color: theme.colorScheme.primary,
           onRefresh: () async {
             if (_currentEventId != null) {
@@ -148,7 +148,6 @@ class _MyEventState extends State<MyEvent> {
               const SliverToBoxAdapter(child: SizedBox(height: 80)),
             ],
           ),
-        ),
       ),
     );
   }
@@ -246,80 +245,49 @@ class _MyEventState extends State<MyEvent> {
 
   // ==========  APP BAR  ==========
   Widget _buildAppBar(ThemeData theme) {
-    final profileData = context.watch<ProfileProvider>().profileData;
-    final initial = (profileData != null &&
-            profileData['name'] != null &&
-            (profileData['name'] as String).isNotEmpty)
-        ? (profileData['name'] as String)[0].toUpperCase()
-        : 'U';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: theme.colorScheme.primary,
-            child: Text(
-              initial,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+    return CustomAppBar(
+      title: "Find Travel Buddies",
+      actions: [
+        if (_currentEventId != null)
+          IconButton(
+            onPressed: () => _fetchDashboardData(_currentEventId!),
+            icon: Icon(
+              Icons.refresh,
+              color: theme.colorScheme.onSurface,
+              size: 24,
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              "Find Travel Buddies",
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-          ),
-          if (_currentEventId != null)
+        Stack(
+          children: [
             IconButton(
-              onPressed: () => _fetchDashboardData(_currentEventId!),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const NotificationsScreen(),
+                  ),
+                );
+              },
               icon: Icon(
-                Icons.refresh,
+                Icons.notifications_outlined,
                 color: theme.colorScheme.onSurface,
-                size: 24,
+                size: 26,
               ),
             ),
-          Stack(
-            children: [
-              IconButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const NotificationsScreen(),
-                    ),
-                  );
-                },
-                icon: Icon(
-                  Icons.notifications_outlined,
-                  color: theme.colorScheme.onSurface,
-                  size: 26,
+            Positioned(
+              right: 10,
+              top: 10,
+              child: Container(
+                width: 9,
+                height: 9,
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
                 ),
               ),
-              Positioned(
-                right: 10,
-                top: 10,
-                child: Container(
-                  width: 9,
-                  height: 9,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

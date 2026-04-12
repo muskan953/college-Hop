@@ -272,5 +272,104 @@ class ApiService {
       body: jsonEncode({"email": email, "otp": otp}),
     );
   }
+
+  /// GET /me/connections — fetch confirmed connections
+  static Future<http.Response> getConnections(String token) async {
+    final url = Uri.parse("$baseUrl/me/connections");
+    return await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+  }
+
+  /// GET /messages/threads — fetch all message threads for the user
+  static Future<http.Response> getThreads(String token) async {
+    final url = Uri.parse("$baseUrl/messages/threads");
+    return await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+  }
+
+  /// GET /messages/{threadId} — fetch message thread
+  static Future<http.Response> getMessages(String token, String threadId) async {
+    final url = Uri.parse("$baseUrl/messages/$threadId");
+    return await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+  }
+
+  /// POST /messages/send — send a message (HTTP fallback)
+  static Future<http.Response> sendMessage(String token, Map<String, dynamic> data) async {
+    final url = Uri.parse("$baseUrl/messages/send");
+    return await http.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(data),
+    );
+  }
+
+  /// POST /messages/thread/direct — get or create a 1:1 thread
+  static Future<http.Response> createDirectThread(String token, String userId) async {
+    final url = Uri.parse("$baseUrl/messages/thread/direct");
+    return await http.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({"user_id": userId}),
+    );
+  }
+
+  /// POST /messages/threads/{id}/clear — clear chat for current user
+  static Future<http.Response> clearThread(String token, String threadId) async {
+    final url = Uri.parse("$baseUrl/messages/threads/$threadId/clear");
+    return await http.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+  }
+
+  /// POST /me/device-token — register FCM token
+  static Future<http.Response> registerDeviceToken(String token, String fcmToken, String platform) async {
+    final url = Uri.parse("$baseUrl/me/device-token");
+    return await http.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({"token": fcmToken, "platform": platform}),
+    );
+  }
+
+  /// DELETE /messages/{messageId} — delete own message
+  static Future<http.Response> deleteMessage(String token, String messageId) async {
+    final url = Uri.parse("$baseUrl/messages/$messageId");
+    return await http.delete(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+  }
 }
 

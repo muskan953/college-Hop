@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:college_hop/theme/theme.dart';
 import 'package:college_hop/screen/splash_screen.dart';
 import 'package:college_hop/screen/public_profile_screen.dart';
@@ -8,9 +9,13 @@ import 'package:college_hop/providers/auth_provider.dart';
 import 'package:college_hop/providers/signup_provider.dart';
 import 'package:college_hop/providers/profile_provider.dart';
 import 'package:college_hop/providers/event_provider.dart';
+import 'package:college_hop/providers/message_provider.dart';
 
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+
   // Detect deep link BEFORE building any widgets
   String? initialDeepLink;
   if (kIsWeb) {
@@ -35,6 +40,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => SignUpProvider()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
         ChangeNotifierProvider(create: (_) => EventProvider()),
+        ChangeNotifierProvider(create: (_) => MessageProvider()),
       ],
       child: const MyApp(),
     ),

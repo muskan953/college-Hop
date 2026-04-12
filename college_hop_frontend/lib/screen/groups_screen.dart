@@ -7,6 +7,8 @@ import 'package:college_hop/theme/app_scaffold.dart';
 import 'package:college_hop/providers/auth_provider.dart';
 import 'package:college_hop/services/api_service.dart';
 import 'package:college_hop/screen/group_details_screen.dart';
+import 'package:college_hop/providers/profile_provider.dart';
+import 'package:college_hop/widgets/custom_app_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  GROUPS SCREEN
@@ -130,45 +132,22 @@ class _GroupsScreenState extends State<GroupsScreen> {
     final theme = Theme.of(context);
 
     return AppScaffold(
-      body: SafeArea(
-        child: Column(
+      body: Column(
           children: [
             // ── App Bar ──────────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  // Avatar placeholder
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: theme.colorScheme.primary,
-                    child: Icon(Icons.person, color: Colors.white, size: 18),
+            CustomAppBar(
+              title: 'Travel Groups',
+              actions: [
+                IconButton(
+                  onPressed: _fetchGroups,
+                  icon: Icon(
+                    Icons.refresh, 
+                    color: _isCooldown 
+                        ? theme.colorScheme.onSurface.withValues(alpha: 0.2)
+                        : theme.colorScheme.onSurface,
                   ),
-
-                  // Title
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        'Travel Groups',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Refresh icon
-                  IconButton(
-                    onPressed: _fetchGroups,
-                    icon: Icon(
-                      Icons.refresh, 
-                      color: _isCooldown 
-                          ? theme.colorScheme.onSurface.withValues(alpha: 0.2)
-                          : theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
 
             // ── Search & Filter ──────────────────────────────────────────────
@@ -218,7 +197,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
             // ── Body ─────────────────────────────────────────────────────────
             Expanded(child: _buildBody(theme)),
           ],
-        ),
       ),
     );
   }
