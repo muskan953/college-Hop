@@ -8,12 +8,13 @@ import (
 	"github.com/muskan953/college-Hop/internal/auth"
 	"github.com/muskan953/college-Hop/internal/events"
 	"github.com/muskan953/college-Hop/internal/groups"
+	"github.com/muskan953/college-Hop/internal/messages"
 	"github.com/muskan953/college-Hop/internal/profile"
 	"github.com/muskan953/college-Hop/internal/upload"
 	"github.com/muskan953/college-Hop/pkg/storage"
 )
 
-func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRepo admin.Repository, eventsRepo events.Repository, groupsRepo groups.Repository, store storage.FileStorage, uploadDir string) *http.ServeMux {
+func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRepo admin.Repository, eventsRepo events.Repository, groupsRepo groups.Repository, messagesRepo messages.Repository, hub *messages.Hub, store storage.FileStorage, uploadDir string) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// authMW is the full auth middleware: validates JWT + rejects blocked users.
@@ -199,6 +200,39 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 			http.Error(w, "not found", http.StatusNotFound)
 		}
 	})))
+
+	// --- Messages routes ---
+	msgHandler := messages.NewHandler(messagesRepo)
+
+	// Protected: list threads
+	mux.Handle("/messages/threads", authMW(http.HandlerFunc(msgHandler.ListThreads)))
+
+	// Protected: get-or-create direct thread
+	mux.Handle("/messages/thread/direct", authMW(http.HandlerFunc(msgHandler.GetOrCreateDirectThread)))
+
+	// Protected: send message (HTTP fallback)
+	mux.Handle("/messages/send", authMW(http.HandlerFunc(msgHandler.SendMessage)))
+
+	// Protected: clear chat, get messages, delete message
+	mux.Handle("/messages/", authMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		switch {
+		case strings.HasSuffix(path, "/clear") && r.Method == http.MethodPost:
+			msgHandler.ClearThread(w, r)
+		case r.Method == http.MethodGet:
+			msgHandler.GetMessages(w, r)
+		case r.Method == http.MethodDelete:
+			msgHandler.DeleteMessage(w, r)
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	})))
+
+	// Protected: register device token for push notifications
+	mux.Handle("/me/device-token", authMW(http.HandlerFunc(msgHandler.RegisterDeviceToken)))
+
+	// WebSocket endpoint (auth via query param, not middleware)
+	mux.HandleFunc("/ws", messages.ServeWS(hub))
 
 	return mux
 }

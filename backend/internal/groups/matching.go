@@ -1,7 +1,6 @@
 package groups
 
 
-
 // CalculateSimilarity computes an intuitive match percentage.
 // Score = (|Intersection| / |User Interests|)
 // This tells the user "What percentage of YOUR interests does this person/group satisfy?"

@@ -13,9 +13,11 @@ import (
 	"github.com/muskan953/college-Hop/internal/auth"
 	"github.com/muskan953/college-Hop/internal/events"
 	"github.com/muskan953/college-Hop/internal/groups"
+	"github.com/muskan953/college-Hop/internal/messages"
 	"github.com/muskan953/college-Hop/internal/middleware"
 	"github.com/muskan953/college-Hop/internal/profile"
 	"github.com/muskan953/college-Hop/internal/server"
+	"github.com/muskan953/college-Hop/pkg/notify"
 	"github.com/muskan953/college-Hop/pkg/db"
 	"github.com/muskan953/college-Hop/pkg/migrations"
 	"github.com/muskan953/college-Hop/pkg/storage"
@@ -55,8 +57,16 @@ func main() {
 	adminRepo := admin.NewRepository(database)
 	eventsRepo := events.NewRepository(database)
 	groupsRepo := groups.NewRepository(database)
+	messagesRepo := messages.NewRepository(database)
 
-	mux := server.NewRouter(authRepo, profileRepo, adminRepo, eventsRepo, groupsRepo, store, uploadDir)
+	// Initialize FCM for push notifications
+	notifier := notify.New()
+
+	// Start WebSocket hub for real-time messaging
+	hub := messages.NewHub(messagesRepo, notifier)
+	go hub.Run()
+
+	mux := server.NewRouter(authRepo, profileRepo, adminRepo, eventsRepo, groupsRepo, messagesRepo, hub, store, uploadDir)
 
 	// Wrap with rate limiter: 20 requests/sec, burst of 40
 	limiter := middleware.NewRateLimiter(20, 40)
