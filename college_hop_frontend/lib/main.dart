@@ -14,7 +14,11 @@ import 'package:college_hop/providers/message_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('Firebase init failed (often expected on Web without options): $e');
+  }
 
   // Detect deep link BEFORE building any widgets
   String? initialDeepLink;

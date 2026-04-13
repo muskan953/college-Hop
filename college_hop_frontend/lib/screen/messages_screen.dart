@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -31,6 +32,7 @@ class _ChatThread {
   final String? eventTag;
 
   final String? otherUserId;
+  final bool isOnline;
 
   const _ChatThread({
     required this.id,
@@ -45,6 +47,7 @@ class _ChatThread {
     required this.type,
     this.eventTag,
     this.otherUserId,
+    this.isOnline = false,
   });
 }
 
@@ -103,6 +106,55 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
     super.initState();
     _tabCtrl = TabController(length: 4, vsync: this);
     _fetchData();
+    final msgProvider = context.read<MessageProvider>();
+    _wsSub = msgProvider.messageStream.listen((_) {
+      if (mounted) _refreshThreads();
+    });
+
+    // Poll thread list every 4 seconds for live last-message updates ONLY if disconnected
+    _threadPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      final isConnected = context.read<MessageProvider>().isConnected;
+      if (!isConnected) {
+        _refreshThreads();
+      }
+    });
+  }
+
+  Timer? _threadPollTimer;
+  StreamSubscription? _wsSub;
+
+  /// Silently refresh only the thread list (last messages, unread counts).
+  Future<void> _refreshThreads() async {
+    final auth = context.read<AuthProvider>();
+    final token = auth.accessToken;
+    if (token == null || !mounted) return;
+    try {
+      final res = await ApiService.getThreads(token);
+      if (!mounted || res.statusCode != 200) return;
+      final List<dynamic> data = jsonDecode(res.body);
+      final updated = data.map((t) {
+        final name = (t['other_user_name'] as String? ?? '').isNotEmpty
+            ? t['other_user_name'] as String
+            : (t['name'] as String? ?? t['thread_type'] as String? ?? 'Chat');
+        final lastMsg = t['last_message'] ?? '';
+        final isGroup = (t['thread_type'] ?? t['type']) == 'group';
+        return _ChatThread(
+          id: t['id'] ?? '',
+          name: name,
+          lastMessage: lastMsg,
+          time: _formatTime(t['last_message_at'] ?? ''),
+          avatarColor: _colorFromId(t['id'] ?? ''),
+          avatarLabel: name.isNotEmpty ? name[0].toUpperCase() : '?',
+          type: isGroup ? _ChatType.group : _ChatType.direct,
+          otherUserId: t['other_user_id'] as String?,
+          unreadCount: t['unread_count'] as int? ?? 0,
+          isOnline: t['is_online'] == true,
+        );
+      }).toList();
+      if (mounted) setState(() => _threads = updated);
+    } catch (e) {
+      debugPrint('[MessagesScreen] thread poll error: $e');
+    }
   }
 
   Future<void> _fetchData() async {
@@ -121,6 +173,37 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
     // Initialize WebSocket + FCM via MessageProvider
     final msgProvider = context.read<MessageProvider>();
     await msgProvider.init(token);
+
+    _globalWsSub?.cancel();
+    _globalWsSub = msgProvider.messageStream.listen((data) {
+      if (data['type'] == 'presence_update') {
+        final payload = data['payload'] as Map<String, dynamic>;
+        if (mounted) {
+          setState(() {
+            for (int i = 0; i < _threads.length; i++) {
+              if (_threads[i].otherUserId == payload['user_id']) {
+                final t = _threads[i];
+                _threads[i] = _ChatThread(
+                  id: t.id,
+                  name: t.name,
+                  lastMessage: t.lastMessage,
+                  time: t.time,
+                  avatarColor: t.avatarColor,
+                  avatarLabel: t.avatarLabel,
+                  isVerified: t.isVerified,
+                  isPinged: t.isPinged,
+                  unreadCount: t.unreadCount,
+                  type: t.type,
+                  eventTag: t.eventTag,
+                  otherUserId: t.otherUserId,
+                  isOnline: payload['is_online'] == true,
+                );
+              }
+            }
+          });
+        }
+      }
+    });
 
     try {
       // Fetch real connections and threads in parallel
@@ -151,9 +234,12 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
       if (threadRes.statusCode == 200) {
         final List<dynamic> threadData = jsonDecode(threadRes.body);
         _threads = threadData.map((t) {
-          final name = t['other_user_name'] ?? t['thread_type'] ?? 'Chat';
+          // Backend returns other_user_name (falls back to email) and name
+          final name = (t['other_user_name'] as String? ?? '').isNotEmpty
+              ? t['other_user_name'] as String
+              : (t['name'] as String? ?? t['thread_type'] as String? ?? 'Chat');
           final lastMsg = t['last_message'] ?? '';
-          final isGroup = t['thread_type'] == 'group';
+          final isGroup = (t['thread_type'] ?? t['type']) == 'group';
           return _ChatThread(
             id: t['id'] ?? '',
             name: name,
@@ -162,14 +248,19 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
             avatarColor: _colorFromId(t['id'] ?? ''),
             avatarLabel: name.isNotEmpty ? name[0].toUpperCase() : '?',
             type: isGroup ? _ChatType.group : _ChatType.direct,
-            otherUserId: t['other_user_id'],
+            otherUserId: t['other_user_id'] as String?,
+            unreadCount: t['unread_count'] as int? ?? 0,
+            isOnline: t['is_online'] == true,
           );
         }).toList();
       }
 
+      // Only show mocks if NOTHING was returned at all
       if (_threads.isEmpty && _connections.isEmpty) {
-        // First time: show mocks so UI isn't empty
         _threads = List.from(_mockThreads);
+        _connections = List.from(_mockConnections);
+      } else if (_connections.isEmpty) {
+        // Keep connections mock if real ones aren't available yet
         _connections = List.from(_mockConnections);
       }
 
@@ -210,8 +301,56 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
     }
   }
 
+  Future<void> _startDirectChat(_Connection conn) async {
+    final auth = context.read<AuthProvider>();
+    final token = auth.accessToken;
+    if (token == null) return;
+
+    try {
+      final res = await ApiService.createDirectThread(token, conn.id);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final threadId = (data['id'] ?? data['thread_id'] ?? '').toString();
+        if (threadId.isEmpty) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not start chat — try again')),
+          );
+          return;
+        }
+        final thread = _ChatThread(
+          id: threadId,
+          name: conn.name,
+          lastMessage: '',
+          time: 'Now',
+          avatarColor: conn.fallbackColor,
+          avatarLabel: conn.name.isNotEmpty ? conn.name[0] : '?',
+          type: _ChatType.direct,
+          otherUserId: conn.id,
+        );
+        if (!mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => _ChatDetailScreen(thread: thread)),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to start chat')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Network error. Trying to fallback...')),
+      );
+    }
+  }
+
   @override
   void dispose() {
+    _threadPollTimer?.cancel();
+    _wsSub?.cancel();
+    _globalWsSub?.cancel();
     _tabCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
@@ -282,50 +421,53 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
                   final conn = _connections[index];
                   return Padding(
                     padding: const EdgeInsets.only(right: 16),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Stack(
-                          children: [
-                            CircleAvatar(
-                              radius: 28,
-                              backgroundColor: conn.fallbackColor.withValues(alpha: 0.2),
-                              child: Text(
-                                conn.name[0],
-                                style: TextStyle(
-                                  color: conn.fallbackColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 20,
-                                ),
-                              ),
-                            ),
-                            if (conn.isOnline)
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Container(
-                                  width: 14,
-                                  height: 14,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF4CAF50),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: theme.scaffoldBackgroundColor,
-                                      width: 2.5,
-                                    ),
+                    child: GestureDetector(
+                      onTap: () => _startDirectChat(conn),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 28,
+                                backgroundColor: conn.fallbackColor.withValues(alpha: 0.2),
+                                child: Text(
+                                  conn.name[0],
+                                  style: TextStyle(
+                                    color: conn.fallbackColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 20,
                                   ),
                                 ),
                               ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          conn.name,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
+                              if (conn.isOnline)
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: Container(
+                                    width: 14,
+                                    height: 14,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF4CAF50),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: theme.scaffoldBackgroundColor,
+                                        width: 2.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 6),
+                          Text(
+                            conn.name,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -368,6 +510,48 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
                 ),
               ),
             ),
+
+            // ── Connection Search Results ─────────────────────────────────────
+            if (_query.isNotEmpty) ...[
+              Builder(builder: (context) {
+                final matchedConns = _connections
+                    .where((c) => c.name.toLowerCase().contains(_query.toLowerCase()))
+                    .toList();
+                if (matchedConns.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                      child: Text(
+                        'Contacts',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                    ...matchedConns.map((conn) => ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      leading: CircleAvatar(
+                        backgroundColor: conn.fallbackColor.withValues(alpha: 0.2),
+                        child: Text(
+                          conn.name[0],
+                          style: TextStyle(color: conn.fallbackColor, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      title: Text(conn.name, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                      subtitle: Text('Tap to message', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
+                      trailing: Icon(Icons.chat_bubble_outline_rounded, color: theme.colorScheme.primary, size: 18),
+                      onTap: () => _startDirectChat(conn),
+                    )),
+                    Divider(height: 1, color: theme.colorScheme.outline.withValues(alpha: 0.1)),
+                    const SizedBox(height: 8),
+                  ],
+                );
+              }),
+            ],
 
             // ── Tab Bar ──────────────────────────────────────────────────────
             Container(
@@ -485,7 +669,7 @@ class _ThreadTile extends StatelessWidget {
                           style: TextStyle(color: thread.avatarColor, fontWeight: FontWeight.bold, fontSize: 18),
                         ),
                 ),
-                if (!isGroup)
+                if (!isGroup && thread.isOnline)
                   Positioned(
                     bottom: 0,
                     right: 0,
@@ -638,6 +822,7 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
 
   List<_Bubble> _bubbles = [];
   bool _loading = true;
+  bool _isOnline = false;
   int? _replyToIndex;
   final Set<int> _selectedIndices = {};
   bool get _isSelecting => _selectedIndices.isNotEmpty;
@@ -657,12 +842,80 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _isOnline = widget.thread.isOnline;
     _fetchMessages();
+    // Start WS listener for native real-time
+    _setupWSListener();
+  }
+
+  void _setupWSListener() {
+    final auth = context.read<AuthProvider>();
+    final userId = auth.userId;
+    final msgProvider = context.read<MessageProvider>();
+    _wsSub?.cancel();
+    _wsSub = msgProvider.messageStream.listen((data) {
+      final type = data['type'];
+      if (type == 'new_message') {
+        final msg = data['payload'] as Map<String, dynamic>;
+        if (msg['thread_id'] == widget.thread.id && mounted) {
+          setState(() {
+            _bubbles.add(_Bubble(
+              id: msg['id'] ?? '',
+              text: msg['content'] ?? '',
+              isMe: msg['sender_id'] == userId,
+              time: _MessagesScreenState._formatTime(msg['created_at'] ?? ''),
+              senderName: msg['sender_name'] ?? '',
+            ));
+          });
+          _scrollToBottom();
+        }
+      } else if (type == 'message_sent') {
+        final payload = data['payload'] as Map<String, dynamic>;
+        if (mounted) {
+          setState(() {
+            final idx = _bubbles.indexWhere((b) => b.id.startsWith('temp_'));
+            if (idx != -1) {
+              _bubbles[idx] = _Bubble(
+                id: payload['message_id'] ?? '',
+                text: _bubbles[idx].text,
+                isMe: true,
+                time: _bubbles[idx].time,
+                senderName: _bubbles[idx].senderName,
+              );
+            }
+          });
+        }
+      } else if (type == 'message_deleted') {
+        final payload = data['payload'] as Map<String, dynamic>;
+        if (payload['thread_id'] == widget.thread.id && mounted) {
+          setState(() {
+            _bubbles.removeWhere((b) => b.id == payload['message_id']);
+          });
+        }
+      } else if (type == 'presence_update') {
+        final payload = data['payload'] as Map<String, dynamic>;
+        if (widget.thread.otherUserId == payload['user_id'] && mounted) {
+          setState(() {
+            _isOnline = payload['is_online'] == true;
+          });
+        }
+      }
+    });
   }
 
   StreamSubscription? _wsSub;
+  Timer? _pollTimer;
 
-  Future<void> _fetchMessages() async {
+  @override
+  void dispose() {
+    _wsSub?.cancel();
+    _pollTimer?.cancel();
+    _msgCtrl.dispose();
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchMessages({bool silent = false}) async {
     final auth = context.read<AuthProvider>();
     final token = auth.accessToken;
     final userId = auth.userId;
@@ -674,66 +927,49 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
     try {
       final res = await ApiService.getMessages(token, widget.thread.id);
       if (!mounted) return;
+      
+      // Async fire-and-forget: mark the chat as read
+      ApiService.markAsRead(token, widget.thread.id);
 
       if (res.statusCode == 200) {
         final List<dynamic> data = jsonDecode(res.body);
-        setState(() {
-          _bubbles = data.reversed.map((m) {
-            return _Bubble(
-              id: m['id'] ?? '',
-              text: m['content'] ?? '',
-              isMe: m['sender_id'] == userId,
-              time: _MessagesScreenState._formatTime(m['created_at'] ?? ''),
-              senderName: m['sender_name'] ?? '',
-            );
-          }).toList();
-          _loading = false;
-        });
+        final incoming = data.reversed.map((m) => _Bubble(
+          id: m['id'] ?? '',
+          text: m['content'] ?? '',
+          isMe: m['sender_id'] == userId,
+          time: _MessagesScreenState._formatTime(m['created_at'] ?? ''),
+          senderName: m['sender_name'] ?? '',
+        )).toList();
 
-        // Listen for real-time messages
-        final msgProvider = context.read<MessageProvider>();
-        _wsSub?.cancel();
-        _wsSub = msgProvider.messageStream.listen((data) {
-          final type = data['type'];
-          if (type == 'new_message') {
-            final msg = data['payload'] as Map<String, dynamic>;
-            if (msg['thread_id'] == widget.thread.id && mounted) {
-              setState(() {
-                _bubbles.add(_Bubble(
-                  id: msg['id'] ?? '',
-                  text: msg['content'] ?? '',
-                  isMe: msg['sender_id'] == userId,
-                  time: _MessagesScreenState._formatTime(msg['created_at'] ?? ''),
-                  senderName: msg['sender_name'] ?? '',
-                ));
-              });
-              _scrollToBottom();
-            }
-          } else if (type == 'message_sent') {
-            // Replace optimistic temp message with confirmed ID
-            final payload = data['payload'] as Map<String, dynamic>;
-            if (mounted) {
-              setState(() {
-                final idx = _bubbles.indexWhere((b) => b.id.startsWith('temp_'));
-                if (idx != -1) {
-                  _bubbles[idx] = _Bubble(
-                    id: payload['message_id'] ?? '',
-                    text: _bubbles[idx].text,
-                    isMe: true,
-                    time: _bubbles[idx].time,
-                    senderName: _bubbles[idx].senderName,
-                  );
-                }
-              });
-            }
+        if (silent) {
+          // Merge: find any new messages not already in the list
+          final existingIds = _bubbles.map((b) => b.id).toSet();
+          final newOnes = incoming.where((b) => b.id.isNotEmpty && !existingIds.contains(b.id)).toList();
+          if (newOnes.isNotEmpty && mounted) {
+            setState(() => _bubbles.addAll(newOnes));
+            _scrollToBottom();
           }
-        });
+        } else {
+          setState(() {
+            _bubbles = incoming;
+            _loading = false;
+          });
+          // Always start polling for new messages (ONLY if disconnected)
+          _pollTimer?.cancel();
+          _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+            final isConnected = context.read<MessageProvider>().isConnected;
+            if (!isConnected) {
+              _fetchMessages(silent: true);
+            }
+          });
+        }
 
         _scrollToBottom();
       } else {
         _loadMock();
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ChatDetail] fetch error: $e');
       _loadMock();
     }
   }
@@ -778,9 +1014,25 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
     });
     _scrollToBottom();
 
-    // Send via MessageProvider (WebSocket primary, HTTP fallback)
+    // Send via MessageProvider (WebSocket primary, HTTP fallback returns the real ID)
     final msgProvider = context.read<MessageProvider>();
-    await msgProvider.sendMessage(widget.thread.id, text);
+    final realId = await msgProvider.sendMessage(widget.thread.id, text);
+    
+    // If HTTP fallback succeeded, it returns the real ID. Replace the temp ID so polling doesn't duplicate it.
+    if (realId != null && mounted) {
+      setState(() {
+        final idx = _bubbles.indexWhere((b) => b.id == tempId);
+        if (idx != -1) {
+          _bubbles[idx] = _Bubble(
+            id: realId,
+            text: _bubbles[idx].text,
+            isMe: true,
+            time: _bubbles[idx].time,
+            senderName: _bubbles[idx].senderName,
+          );
+        }
+      });
+    }
   }
 
   void _showMessageActions(int index) {
@@ -931,15 +1183,9 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
   }
 
 
-  @override
-  void dispose() {
-    _wsSub?.cancel();
-    _msgCtrl.dispose();
-    _scrollCtrl.dispose();
-    super.dispose();
-  }
 
   @override
+
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final t = widget.thread;
@@ -973,8 +1219,10 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
                   Text(t.name, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                   if (t.eventTag != null)
                     Text(t.eventTag!, style: TextStyle(fontSize: 10, color: theme.colorScheme.primary.withValues(alpha: 0.7), fontWeight: FontWeight.w600))
+                  else if (_isOnline)
+                    const Text('Online', style: TextStyle(fontSize: 10, color: Color(0xFF4CAF50), fontWeight: FontWeight.w600))
                   else
-                    const Text('Online', style: TextStyle(fontSize: 10, color: Color(0xFF4CAF50), fontWeight: FontWeight.w600)),
+                    Text('Offline', style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontWeight: FontWeight.w600)),
                 ],
               ),
             ],
@@ -995,36 +1243,42 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
               },
               icon: Icon(Icons.copy, color: theme.colorScheme.onSurface.withValues(alpha: 0.7), size: 22),
             ),
-            IconButton(
-              onPressed: () {
-                final count = _selectedIndices.length;
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    title: const Text('Delete Messages'),
-                    content: Text('Delete $count selected message(s)?'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          setState(() {
-                            final sorted = _selectedIndices.toList()..sort((a, b) => b.compareTo(a));
-                            for (final i in sorted) {
-                              _bubbles.removeAt(i);
-                            }
-                            _selectedIndices.clear();
-                          });
-                        },
-                        child: Text('Delete', style: TextStyle(color: theme.colorScheme.error)),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              icon: Icon(Icons.delete_outline, color: theme.colorScheme.error, size: 22),
-            ),
+            if (!_selectedIndices.any((i) => !_bubbles[i].isMe))
+              IconButton(
+                onPressed: () {
+                  final count = _selectedIndices.length;
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      title: const Text('Delete Messages'),
+                      content: Text('Delete $count selected message(s)?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            final msgProvider = context.read<MessageProvider>();
+                            setState(() {
+                              final sorted = _selectedIndices.toList()..sort((a, b) => b.compareTo(a));
+                              for (final i in sorted) {
+                                final b = _bubbles[i];
+                                if (b.id.isNotEmpty && !b.id.startsWith('temp_')) {
+                                  msgProvider.deleteMessage(b.id);
+                                }
+                                _bubbles.removeAt(i);
+                              }
+                              _selectedIndices.clear();
+                            });
+                          },
+                          child: Text('Delete', style: TextStyle(color: theme.colorScheme.error)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                icon: Icon(Icons.delete_outline, color: theme.colorScheme.error, size: 22),
+              ),
             IconButton(
               onPressed: _clearSelection,
               icon: Icon(Icons.close, color: theme.colorScheme.onSurface.withValues(alpha: 0.7), size: 22),

@@ -13,6 +13,7 @@ class WebSocketService {
   int _reconnectAttempts = 0;
   String? _currentToken;
   bool _disposed = false;
+  bool _intentionalClose = false;
 
   /// Stream of incoming WebSocket messages.
   Stream<Map<String, dynamic>> get messageStream => _messageController.stream;
@@ -24,6 +25,7 @@ class WebSocketService {
   void connect(String token) {
     if (_disposed) return;
     _currentToken = token;
+    _intentionalClose = false;
 
     try {
       final wsUrl = ApiService.baseUrl
@@ -34,8 +36,7 @@ class WebSocketService {
         Uri.parse('$wsUrl/ws?token=$token'),
       );
 
-      _reconnectAttempts = 0;
-      debugPrint('[WS] Connected');
+      debugPrint('[WS] Connecting (attempt $_reconnectAttempts)');
 
       _channel!.stream.listen(
         _onMessage,
@@ -45,8 +46,17 @@ class WebSocketService {
           _onDisconnect();
         },
       );
+
+      // Only reset counter if we successfully stay connected
+      Future.delayed(const Duration(seconds: 5), () {
+        if (_channel != null && !_disposed) {
+          _reconnectAttempts = 0;
+          debugPrint('[WS] Connection stable');
+        }
+      });
     } catch (e) {
       debugPrint('[WS] Connection failed: $e');
+      _channel = null;
       _scheduleReconnect();
     }
   }
@@ -70,7 +80,9 @@ class WebSocketService {
 
   /// Disconnect and clean up.
   void disconnect() {
+    _intentionalClose = true;
     _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _channel?.sink.close();
     _channel = null;
   }
@@ -102,22 +114,27 @@ class WebSocketService {
   void _onDisconnect() {
     _channel = null;
     debugPrint('[WS] Disconnected');
-    if (!_disposed) {
+    if (!_disposed && !_intentionalClose) {
       _scheduleReconnect();
     }
   }
 
   void _scheduleReconnect() {
     if (_disposed || _currentToken == null) return;
+    // Cap at 10 retries (~60s max delay)
+    if (_reconnectAttempts >= 10) {
+      debugPrint('[WS] Max reconnect attempts reached, giving up');
+      return;
+    }
 
+    _reconnectAttempts++;
     final delay = Duration(
-      seconds: min(30, pow(2, _reconnectAttempts).toInt()),
+      seconds: min(60, pow(2, _reconnectAttempts).toInt()),
     );
     debugPrint('[WS] Reconnecting in ${delay.inSeconds}s (attempt $_reconnectAttempts)');
 
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(delay, () {
-      _reconnectAttempts++;
       connect(_currentToken!);
     });
   }

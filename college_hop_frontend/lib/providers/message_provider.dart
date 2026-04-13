@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:college_hop/services/api_service.dart';
@@ -11,6 +10,7 @@ class MessageProvider with ChangeNotifier {
   final WebSocketService _ws = WebSocketService();
   StreamSubscription? _wsSubscription;
   String? _currentToken;
+  bool _initialized = false;
 
   // Thread state
   List<Map<String, dynamic>> threads = [];
@@ -24,11 +24,17 @@ class MessageProvider with ChangeNotifier {
   /// Expose the raw WS message stream for per-screen listeners.
   Stream<Map<String, dynamic>> get messageStream => _ws.messageStream;
 
+  /// Expose the WebSocket connection status.
+  bool get isConnected => _ws.isConnected;
+
   /// Connect WebSocket and register FCM token.
   Future<void> init(String token) async {
+    // Prevent duplicate initialization on screen revisits
+    if (_initialized && _currentToken == token) return;
+    _initialized = true;
     _currentToken = token;
 
-    // Connect WebSocket
+    // WebSocket works on Web for ws://localhost!
     _ws.connect(token);
     _wsSubscription?.cancel();
     _wsSubscription = _ws.messageStream.listen(_handleWSMessage);
@@ -79,8 +85,8 @@ class MessageProvider with ChangeNotifier {
   }
 
   /// Send a message via WebSocket (primary) or HTTP (fallback).
-  Future<void> sendMessage(String threadId, String content) async {
-    if (_currentToken == null) return;
+  Future<String?> sendMessage(String threadId, String content) async {
+    if (_currentToken == null) return null;
 
     // Optimistic UI: add the message locally
     final optimistic = {
@@ -97,6 +103,7 @@ class MessageProvider with ChangeNotifier {
 
     if (_ws.isConnected) {
       _ws.sendMessage(threadId, content);
+      return null;
     } else {
       // HTTP fallback
       try {
@@ -112,11 +119,13 @@ class MessageProvider with ChangeNotifier {
             messages[idx] = msg;
           }
           notifyListeners();
+          return msg['id'] as String?;
         }
       } catch (e) {
         debugPrint('[MsgProvider] HTTP send failed: $e');
       }
     }
+    return null;
   }
 
   /// Send typing indicator.
@@ -219,6 +228,8 @@ class MessageProvider with ChangeNotifier {
   }
 
   Future<void> _registerFCMToken(String authToken) async {
+    // FCM push tokens are not available on Flutter Web without full Firebase config
+    if (kIsWeb) return;
     try {
       final fcm = FirebaseMessaging.instance;
 
@@ -231,7 +242,8 @@ class MessageProvider with ChangeNotifier {
 
       final fcmToken = await fcm.getToken();
       if (fcmToken != null) {
-        final platform = kIsWeb ? 'web' : (Platform.isIOS ? 'ios' : 'android');
+        // Determine platform without dart:io on web
+        final platform = kIsWeb ? 'web' : _mobilePlatform();
         await ApiService.registerDeviceToken(authToken, fcmToken, platform);
         debugPrint('[FCM] Token registered');
       }
@@ -239,7 +251,7 @@ class MessageProvider with ChangeNotifier {
       // Listen for token refresh
       fcm.onTokenRefresh.listen((newToken) {
         if (_currentToken != null) {
-          final platform = kIsWeb ? 'web' : (Platform.isIOS ? 'ios' : 'android');
+          final platform = kIsWeb ? 'web' : _mobilePlatform();
           ApiService.registerDeviceToken(_currentToken!, newToken, platform);
         }
       });
@@ -253,5 +265,12 @@ class MessageProvider with ChangeNotifier {
     _wsSubscription?.cancel();
     _ws.dispose();
     super.dispose();
+  }
+
+  /// Returns 'ios' or 'android' — only call when !kIsWeb.
+  static String _mobilePlatform() {
+    // Use defaultTargetPlatform which is available everywhere
+    if (defaultTargetPlatform == TargetPlatform.iOS) return 'ios';
+    return 'android';
   }
 }

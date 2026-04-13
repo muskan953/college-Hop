@@ -297,6 +297,18 @@ class ApiService {
     );
   }
 
+  /// POST /messages/threads/{threadId}/read — mark a chat as read
+  static Future<http.Response> markAsRead(String token, String threadId) async {
+    final url = Uri.parse("$baseUrl/messages/threads/$threadId/read");
+    return await http.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+  }
+
   /// GET /messages/{threadId} — fetch message thread
   static Future<http.Response> getMessages(String token, String threadId) async {
     final url = Uri.parse("$baseUrl/messages/$threadId");
