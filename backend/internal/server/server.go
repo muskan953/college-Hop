@@ -63,6 +63,9 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 	mux.Handle("/me/alternate-email/request-otp", authMW(http.HandlerFunc(profileHandler.RequestAlternateEmailOTP)))
 	mux.Handle("/me/alternate-email/verify", authMW(http.HandlerFunc(profileHandler.VerifyAlternateEmail)))
 
+	// Protected: get user connections
+	mux.Handle("/me/connections", authMW(http.HandlerFunc(profileHandler.GetConnections)))
+
 	// Upload route (protected by auth)
 	uploadHandler := upload.NewHandler(store)
 	mux.Handle("/upload", authMW(http.HandlerFunc(uploadHandler.Upload)))
@@ -202,7 +205,7 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 	})))
 
 	// --- Messages routes ---
-	msgHandler := messages.NewHandler(messagesRepo)
+	msgHandler := messages.NewHandler(messagesRepo, hub)
 
 	// Protected: list threads
 	mux.Handle("/messages/threads", authMW(http.HandlerFunc(msgHandler.ListThreads)))
@@ -219,6 +222,8 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 		switch {
 		case strings.HasSuffix(path, "/clear") && r.Method == http.MethodPost:
 			msgHandler.ClearThread(w, r)
+		case strings.HasSuffix(path, "/read") && r.Method == http.MethodPost:
+			msgHandler.HandleMarkRead(w, r)
 		case r.Method == http.MethodGet:
 			msgHandler.GetMessages(w, r)
 		case r.Method == http.MethodDelete:

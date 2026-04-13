@@ -13,6 +13,7 @@ type Repository interface {
 	UpsertPreferences(ctx context.Context, userID string, req UpdatePreferencesRequest) error
 	GetPreferences(ctx context.Context, userID string) (*PreferencesResponse, error)
 	CreateConnection(ctx context.Context, userID1, userID2 string) error
+	GetConnections(ctx context.Context, userID string) ([]ConnectionResponse, error)
 	SaveAlternateEmail(ctx context.Context, userID, email string) error
 }
 
@@ -392,6 +393,39 @@ func (r *PostgresRepository) CreateConnection(ctx context.Context, userID1, user
 		ON CONFLICT (user_id_1, user_id_2) DO NOTHING
 	`, userID1, userID2)
 	return err
+}
+
+func (r *PostgresRepository) GetConnections(ctx context.Context, userID string) ([]ConnectionResponse, error) {
+	query := `
+		SELECT DISTINCT
+			u.id, 
+			u.email, 
+			COALESCE(p.full_name, ''), 
+			COALESCE(p.profile_photo_url, '')
+		FROM connections c
+		JOIN users u ON (u.id = c.user_id_1 OR u.id = c.user_id_2) AND u.id != $1
+		LEFT JOIN profiles p ON p.user_id = u.id
+		WHERE (c.user_id_1 = $1 OR c.user_id_2 = $1) AND c.status = 'connected'
+	`
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var conns []ConnectionResponse
+	for rows.Next() {
+		var c ConnectionResponse
+		if err := rows.Scan(&c.UserID, &c.Email, &c.FullName, &c.ProfilePhotoURL); err != nil {
+			return nil, err
+		}
+		conns = append(conns, c)
+	}
+
+	if conns == nil {
+		conns = []ConnectionResponse{}
+	}
+	return conns, nil
 }
 
 func (r *PostgresRepository) SaveAlternateEmail(ctx context.Context, userID, email string) error {

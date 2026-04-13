@@ -13,6 +13,13 @@ type UpdateProfileRequest struct {
 	Interests       []string `json:"interests"`
 }
 
+type ConnectionResponse struct {
+	UserID          string `json:"user_id"`
+	Email           string `json:"email"`
+	FullName        string `json:"full_name"`
+	ProfilePhotoURL string `json:"profile_photo_url"`
+}
+
 type ProfileResponse struct {
 	UserID           string   `json:"user_id"`
 	FullName         string   `json:"full_name"`
