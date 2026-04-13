@@ -16,10 +16,11 @@ type Repository interface {
 	// Messages
 	GetMessages(ctx context.Context, threadID, userID string, before time.Time, limit int) ([]Message, error)
 	CreateMessage(ctx context.Context, threadID, senderID, content string) (Message, error)
-	DeleteMessage(ctx context.Context, messageID, userID string) error
+	DeleteMessage(ctx context.Context, messageID, userID string) (string, error)
 
 	// Thread management
 	ClearThread(ctx context.Context, threadID, userID string) error
+	MarkThreadAsRead(ctx context.Context, threadID, userID string) error
 
 	// Membership
 	IsParticipant(ctx context.Context, threadID, userID string) (bool, error)
@@ -127,19 +128,29 @@ func (r *PostgresRepository) ListUserThreads(ctx context.Context, userID string)
 			mt.type,
 			COALESCE(
 				CASE WHEN mt.type = 'group' THEN tg.name
-				     ELSE p.full_name
+				     ELSE COALESCE(p.full_name, u.email)
 				END,
 				'Unknown'
-			) AS name,
+			) AS other_user_name,
 			COALESCE(lm.content, '') AS last_message,
 			COALESCE(lm.created_at, mt.created_at) AS last_message_at,
-			p2.profile_photo_url
+			p2.profile_photo_url,
+			COALESCE(tp_other.user_id::text, '') AS other_user_id,
+			(
+				SELECT COUNT(*)
+				FROM messages m2
+				WHERE m2.thread_id = mt.id
+				  AND m2.sender_id != $1
+				  AND m2.created_at > COALESCE(tp.last_read_at, '1970-01-01'::timestamptz)
+				  AND m2.created_at > COALESCE(tp.cleared_at, '1970-01-01'::timestamptz)
+			) AS unread_count
 		FROM thread_participants tp
 		JOIN message_threads mt ON mt.id = tp.thread_id
 		-- For direct chats: get the OTHER participant's name
 		LEFT JOIN thread_participants tp_other
 			ON tp_other.thread_id = mt.id AND tp_other.user_id != $1 AND mt.type = 'direct'
 		LEFT JOIN profiles p ON p.user_id = tp_other.user_id
+		LEFT JOIN users u ON u.id = tp_other.user_id
 		LEFT JOIN profiles p2 ON p2.user_id = tp_other.user_id
 		-- For group chats: get the group name
 		LEFT JOIN travel_groups tg ON tg.id = mt.group_id
@@ -150,11 +161,12 @@ func (r *PostgresRepository) ListUserThreads(ctx context.Context, userID string)
 			  AND created_at > COALESCE(tp.cleared_at, '1970-01-01'::timestamptz)
 			ORDER BY created_at DESC LIMIT 1
 		) lm ON true
-		-- Exclude threads from blocked connections
 		WHERE tp.user_id = $1
+		  -- Only exclude if the other user IS identified and has blocked
 		  AND NOT EXISTS (
 			SELECT 1 FROM connections
-			WHERE ((user_id_1 = $1 AND user_id_2 = tp_other.user_id)
+			WHERE tp_other.user_id IS NOT NULL
+			  AND ((user_id_1 = $1 AND user_id_2 = tp_other.user_id)
 			    OR (user_id_1 = tp_other.user_id AND user_id_2 = $1))
 			  AND status = 'blocked'
 		  )
@@ -169,13 +181,19 @@ func (r *PostgresRepository) ListUserThreads(ctx context.Context, userID string)
 	for rows.Next() {
 		var ts ThreadSummary
 		var avatarURL sql.NullString
+		var otherUserID sql.NullString
 		if err := rows.Scan(&ts.ID, &ts.Type, &ts.Name, &ts.LastMessage,
-			&ts.LastMessageTime, &avatarURL); err != nil {
+			&ts.LastMessageTime, &avatarURL, &otherUserID, &ts.UnreadCount); err != nil {
 			return nil, err
 		}
 		if avatarURL.Valid {
 			ts.AvatarURL = &avatarURL.String
 		}
+		if otherUserID.Valid && otherUserID.String != "" {
+			ts.OtherUserID = &otherUserID.String
+		}
+		// Mirror Name to OtherUserName so both JSON fields are populated
+		ts.OtherUserName = ts.Name
 		threads = append(threads, ts)
 	}
 	return threads, rows.Err()
@@ -230,19 +248,22 @@ func (r *PostgresRepository) CreateMessage(ctx context.Context, threadID, sender
 	return m, err
 }
 
-// DeleteMessage removes a message if it belongs to the requesting user.
-func (r *PostgresRepository) DeleteMessage(ctx context.Context, messageID, userID string) error {
-	result, err := r.db.ExecContext(ctx, `
+// DeleteMessage removes a message if it belongs to the requesting user and returns its thread ID.
+func (r *PostgresRepository) DeleteMessage(ctx context.Context, messageID, userID string) (string, error) {
+	var threadID string
+	err := r.db.QueryRowContext(ctx, `
 		DELETE FROM messages WHERE id = $1 AND sender_id = $2
-	`, messageID, userID)
+		RETURNING thread_id
+	`, messageID, userID).Scan(&threadID)
+	
 	if err != nil {
-		return err
+		if err == sql.ErrNoRows {
+			return "", sql.ErrNoRows
+		}
+		return "", err
 	}
-	n, _ := result.RowsAffected()
-	if n == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
+	
+	return threadID, nil
 }
 
 // ClearThread sets cleared_at for a user, hiding older messages from their view.
@@ -337,4 +358,14 @@ func (r *PostgresRepository) IsBlocked(ctx context.Context, userID1, userID2 str
 		)
 	`, userID1, userID2).Scan(&blocked)
 	return blocked, err
+}
+
+// MarkThreadAsRead updates the last_read_at timestamp for a user in a thread.
+func (r *PostgresRepository) MarkThreadAsRead(ctx context.Context, threadID, userID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE thread_participants
+		SET last_read_at = NOW()
+		WHERE thread_id = $1 AND user_id = $2
+	`, threadID, userID)
+	return err
 }

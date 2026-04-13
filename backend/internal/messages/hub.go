@@ -52,23 +52,39 @@ func (h *Hub) Run() {
 		select {
 		case client := <-h.register:
 			h.mu.Lock()
+			wasOnline := false
 			// Close existing connection for same user (single-device)
 			if existing, ok := h.clients[client.userID]; ok {
 				close(existing.send)
 				delete(h.clients, client.userID)
+				wasOnline = true
 			}
 			h.clients[client.userID] = client
 			h.mu.Unlock()
 			log.Printf("[Hub] Client registered: %s", client.userID)
+			if !wasOnline {
+				go h.BroadcastUserPresence(client.userID, true)
+			}
 
 		case client := <-h.unregister:
 			h.mu.Lock()
+			removed := false
 			if existing, ok := h.clients[client.userID]; ok && existing == client {
 				close(existing.send)
 				delete(h.clients, client.userID)
+				removed = true
 			}
 			h.mu.Unlock()
 			log.Printf("[Hub] Client unregistered: %s", client.userID)
+			if removed {
+				go func(uid string) {
+					// Wait a moment in case of quick device-swap
+					time.Sleep(500 * time.Millisecond)
+					if !h.IsOnline(uid) {
+						h.BroadcastUserPresence(uid, false)
+					}
+				}(client.userID)
+			}
 
 		case bMsg := <-h.broadcast:
 			h.handleBroadcast(bMsg)
@@ -251,5 +267,53 @@ func (h *Hub) sendPushNotification(ctx context.Context, userID string, msg Messa
 	}
 
 	h.notifier.SendToMany(ctx, tokens, msg.SenderName, body, data)
+}
+
+// BroadcastMessageDeleted notifies thread participants that a message was deleted.
+func (h *Hub) BroadcastMessageDeleted(ctx context.Context, threadID, messageID string) {
+	participants, err := h.repo.GetParticipantIDs(ctx, threadID)
+	if err != nil {
+		return
+	}
+
+	payload := WSOutgoing{
+		Type: "message_deleted",
+		Payload: map[string]string{
+			"thread_id":  threadID,
+			"message_id": messageID,
+		},
+	}
+
+	for _, pid := range participants {
+		h.sendToUser(pid, payload)
+	}
+}
+
+// BroadcastUserPresence notifies all users that share a thread with the given user about their status change.
+func (h *Hub) BroadcastUserPresence(userID string, isOnline bool) {
+	ctx := context.Background()
+	threads, err := h.repo.ListUserThreads(ctx, userID)
+	if err != nil {
+		return
+	}
+
+	payload := WSOutgoing{
+		Type: "presence_update",
+		Payload: map[string]interface{}{
+			"user_id":   userID,
+			"is_online": isOnline,
+		},
+	}
+
+	notified := map[string]bool{userID: true} // Don't notify self
+
+	for _, thread := range threads {
+		for _, pid := range thread.Participants {
+			if !notified[pid] {
+				notified[pid] = true
+				h.sendToUser(pid, payload)
+			}
+		}
+	}
 }
 

@@ -13,11 +13,15 @@ import (
 // Handler provides HTTP handlers for REST messaging endpoints.
 type Handler struct {
 	repo Repository
+	hub  *Hub
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(repo Repository) *Handler {
-	return &Handler{repo: repo}
+func NewHandler(repo Repository, hub *Hub) *Handler {
+	return &Handler{
+		repo: repo,
+		hub:  hub,
+	}
 }
 
 // GET /messages/threads — List all threads for the authenticated user.
@@ -40,6 +44,13 @@ func (h *Handler) ListThreads(w http.ResponseWriter, r *http.Request) {
 	}
 	if threads == nil {
 		threads = []ThreadSummary{}
+	}
+
+	// Add live online status for direct threads
+	for i := range threads {
+		if threads[i].OtherUserID != nil {
+			threads[i].IsOnline = h.hub.IsOnline(*threads[i].OtherUserID)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -215,7 +226,8 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	messageID := parts[1]
 
-	if err := h.repo.DeleteMessage(r.Context(), messageID, user.ID); err != nil {
+	threadID, err := h.repo.DeleteMessage(r.Context(), messageID, user.ID)
+	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "message not found or not yours", http.StatusNotFound)
 			return
@@ -223,6 +235,9 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to delete message", http.StatusInternalServerError)
 		return
 	}
+
+	// Notify the Hub to push real-time deletion events
+	h.hub.BroadcastMessageDeleted(r.Context(), threadID, messageID)
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -261,6 +276,34 @@ func (h *Handler) ClearThread(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "chat cleared"})
+}
+
+// POST /messages/threads/{id}/read — Mark a chat as read.
+func (h *Handler) HandleMarkRead(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 4 {
+		http.Error(w, "invalid URL", http.StatusBadRequest)
+		return
+	}
+	threadID := parts[2]
+
+	if err := h.repo.MarkThreadAsRead(r.Context(), threadID, user.ID); err != nil {
+		http.Error(w, "failed to mark as read", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 // POST /me/device-token — Register a device token for push notifications.

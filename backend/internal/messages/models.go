@@ -13,12 +13,16 @@ type Thread struct {
 // ThreadSummary is returned by ListUserThreads for the thread list screen.
 type ThreadSummary struct {
 	ID              string    `json:"id"`
-	Type            string    `json:"type"`
+	Type            string    `json:"thread_type"`
 	Name            string    `json:"name"`
 	LastMessage     string    `json:"last_message"`
 	LastMessageTime time.Time `json:"last_message_at"`
 	AvatarURL       *string   `json:"avatar_url"`
 	Participants    []string  `json:"participant_ids"`
+	OtherUserID     *string   `json:"other_user_id"`
+	OtherUserName   string    `json:"other_user_name"`
+	UnreadCount     int       `json:"unread_count"`
+	IsOnline        bool      `json:"is_online"`
 }
 
 // Message represents a single chat message.
