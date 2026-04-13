@@ -11,6 +11,7 @@ college_hop_frontend/.vscode/
 
 college_hop_frontend/android/.gradle/
 college_hop_frontend/android/local.properties
+college_hop_frontend/android/app/google-services.json
 
 college_hop_frontend/ios/Pods/
 college_hop_frontend/ios/.symlinks/
