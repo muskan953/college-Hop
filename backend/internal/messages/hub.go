@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/muskan953/college-Hop/pkg/notify"
 )
@@ -153,7 +154,7 @@ func (h *Hub) handleMessage(ctx context.Context, bMsg *broadcastMsg) {
 	}
 
 	// Persist the message
-	msg, err := h.repo.CreateMessage(ctx, threadID, senderID, content)
+	msg, err := h.repo.CreateMessage(ctx, threadID, senderID, content, bMsg.incoming.ReplyToID, bMsg.incoming.IsForwarded)
 	if err != nil {
 		log.Printf("[Hub] Failed to persist message: %v", err)
 		h.sendError(senderID, "failed to send message")
@@ -308,7 +309,11 @@ func (h *Hub) BroadcastUserPresence(userID string, isOnline bool) {
 	notified := map[string]bool{userID: true} // Don't notify self
 
 	for _, thread := range threads {
-		for _, pid := range thread.Participants {
+		pids, err := h.repo.GetParticipantIDs(ctx, thread.ID)
+		if err != nil {
+			continue
+		}
+		for _, pid := range pids {
 			if !notified[pid] {
 				notified[pid] = true
 				h.sendToUser(pid, payload)

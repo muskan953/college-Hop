@@ -12,6 +12,8 @@ import 'package:college_hop/screen/notification_screen.dart';
 import 'package:college_hop/screen/public_profile_screen.dart';
 import 'package:college_hop/providers/profile_provider.dart';
 import 'package:college_hop/widgets/custom_app_bar.dart';
+import 'package:http/http.dart' as http;
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  DATA MODELS
@@ -122,6 +124,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
 
   Timer? _threadPollTimer;
   StreamSubscription? _wsSub;
+  StreamSubscription? _globalWsSub;
 
   /// Silently refresh only the thread list (last messages, unread counts).
   Future<void> _refreshThreads() async {
@@ -200,6 +203,18 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
                 );
               }
             }
+            // Update connections
+            for (int i = 0; i < _connections.length; i++) {
+              if (_connections[i].id == payload['user_id']) {
+                final c = _connections[i];
+                _connections[i] = _Connection(
+                  c.id,
+                  c.name,
+                  c.fallbackColor,
+                  payload['is_online'] == true,
+                );
+              }
+            }
           });
         }
       }
@@ -253,6 +268,17 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
             isOnline: t['is_online'] == true,
           );
         }).toList();
+      }
+
+      // Sync connection statuses with thread statuses since connections API lacks online state
+      if (_threads.isNotEmpty && _connections.isNotEmpty) {
+        for (int i = 0; i < _connections.length; i++) {
+          final threadIdx = _threads.indexWhere((t) => t.otherUserId == _connections[i].id);
+          if (threadIdx != -1) {
+            final c = _connections[i];
+            _connections[i] = _Connection(c.id, c.name, c.fallbackColor, _threads[threadIdx].isOnline);
+          }
+        }
       }
 
       // Only show mocks if NOTHING was returned at all
@@ -824,6 +850,7 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
   bool _loading = true;
   bool _isOnline = false;
   int? _replyToIndex;
+  bool _showEmojiPicker = false;
   final Set<int> _selectedIndices = {};
   bool get _isSelecting => _selectedIndices.isNotEmpty;
 
@@ -846,6 +873,10 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
     _fetchMessages();
     // Start WS listener for native real-time
     _setupWSListener();
+
+    _timeUpdateTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   void _setupWSListener() {
@@ -863,8 +894,11 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
               id: msg['id'] ?? '',
               text: msg['content'] ?? '',
               isMe: msg['sender_id'] == userId,
-              time: _MessagesScreenState._formatTime(msg['created_at'] ?? ''),
+              isoTime: msg['created_at'] ?? '',
               senderName: msg['sender_name'] ?? '',
+              replyToText: msg['reply_to_content'],
+              replyToSender: msg['reply_to_sender'],
+              isForwarded: msg['is_forwarded'] == true,
             ));
           });
           _scrollToBottom();
@@ -879,8 +913,11 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
                 id: payload['message_id'] ?? '',
                 text: _bubbles[idx].text,
                 isMe: true,
-                time: _bubbles[idx].time,
+                isoTime: payload['created_at'] ?? _bubbles[idx].isoTime,
                 senderName: _bubbles[idx].senderName,
+                replyToText: _bubbles[idx].replyToText,
+                replyToSender: _bubbles[idx].replyToSender,
+                isForwarded: _bubbles[idx].isForwarded,
               );
             }
           });
@@ -905,6 +942,7 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
 
   StreamSubscription? _wsSub;
   Timer? _pollTimer;
+  Timer? _timeUpdateTimer;
 
   @override
   void dispose() {
@@ -937,8 +975,11 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
           id: m['id'] ?? '',
           text: m['content'] ?? '',
           isMe: m['sender_id'] == userId,
-          time: _MessagesScreenState._formatTime(m['created_at'] ?? ''),
+          isoTime: m['created_at'] ?? '',
           senderName: m['sender_name'] ?? '',
+          replyToText: m['reply_to_content'],
+          replyToSender: m['reply_to_sender'],
+          isForwarded: m['is_forwarded'] == true,
         )).toList();
 
         if (silent) {
@@ -977,14 +1018,15 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
   void _loadMock() {
     if (!mounted) return;
     setState(() {
+      final dummyNow = DateTime.now().toIso8601String();
       _bubbles = [
-        _Bubble(text: 'Hey! Are you going to the hackathon?', isMe: false, time: '10:15 AM'),
-        _Bubble(text: 'Yes! Super excited. Did you register?', isMe: true, time: '10:16 AM'),
-        _Bubble(text: 'Not yet. Team of 3 or 4?', isMe: false, time: '10:17 AM'),
-        _Bubble(text: 'Open to 4. We have AI and backend covered 🚀', isMe: true, time: '10:18 AM'),
-        _Bubble(text: 'Nice! I can do frontend + design', isMe: false, time: '10:19 AM'),
-        _Bubble(text: 'Perfect! Shall we book travel together?', isMe: true, time: '10:20 AM'),
-        _Bubble(text: 'Sounds good! See you at the airport 🛫', isMe: false, time: '10:21 AM'),
+        _Bubble(text: 'Hey! Are you going to the hackathon?', isMe: false, isoTime: dummyNow),
+        _Bubble(text: 'Yes! Super excited. Did you register?', isMe: true, isoTime: dummyNow),
+        _Bubble(text: 'Not yet. Team of 3 or 4?', isMe: false, isoTime: dummyNow),
+        _Bubble(text: 'Open to 4. We have AI and backend covered 🚀', isMe: true, isoTime: dummyNow),
+        _Bubble(text: 'Nice! I can do frontend + design', isMe: false, isoTime: dummyNow),
+        _Bubble(text: 'Perfect! Shall we book travel together?', isMe: true, isoTime: dummyNow),
+        _Bubble(text: 'Sounds good! See you at the airport 🛫', isMe: false, isoTime: dummyNow),
       ];
       _loading = false;
     });
@@ -1008,15 +1050,30 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
     if (text.isEmpty) return;
 
     final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
+    final replyIndex = _replyToIndex;
+    final replyBubble = replyIndex != null ? _bubbles[replyIndex] : null;
+
     setState(() {
-      _bubbles.add(_Bubble(id: tempId, text: text, isMe: true, time: 'Now'));
+      _bubbles.add(_Bubble(
+        id: tempId, 
+        text: text, 
+        isMe: true, 
+        isoTime: DateTime.now().toIso8601String(),
+        replyToText: replyBubble?.text,
+        replyToSender: replyBubble?.isMe == true ? 'You' : replyBubble?.senderName,
+      ));
       _msgCtrl.clear();
+      _replyToIndex = null;
     });
     _scrollToBottom();
 
     // Send via MessageProvider (WebSocket primary, HTTP fallback returns the real ID)
     final msgProvider = context.read<MessageProvider>();
-    final realId = await msgProvider.sendMessage(widget.thread.id, text);
+    final realId = await msgProvider.sendMessage(
+      widget.thread.id, 
+      text,
+      replyToId: replyBubble?.id,
+    );
     
     // If HTTP fallback succeeded, it returns the real ID. Replace the temp ID so polling doesn't duplicate it.
     if (realId != null && mounted) {
@@ -1027,8 +1084,11 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
             id: realId,
             text: _bubbles[idx].text,
             isMe: true,
-            time: _bubbles[idx].time,
+            isoTime: _bubbles[idx].isoTime,
             senderName: _bubbles[idx].senderName,
+            replyToText: _bubbles[idx].replyToText,
+            replyToSender: _bubbles[idx].replyToSender,
+            isForwarded: _bubbles[idx].isForwarded,
           );
         }
       });
@@ -1100,9 +1160,7 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
                     }),
                     _buildMsgAction(ctx, Icons.shortcut_rounded, 'Forward', const Color(0xFFFF7043), () {
                       Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Forward coming soon'), duration: Duration(seconds: 2)),
-                      );
+                      _showForwardDialog(bubble.text);
                     }),
                     _buildMsgAction(ctx, Icons.check_circle_outline, 'Select', const Color(0xFF42A5F5), () {
                       Navigator.pop(ctx);
@@ -1148,7 +1206,121 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
     );
   }
 
+  void _showForwardDialog(String forwardText) async {
+    final auth = context.read<AuthProvider>();
+    final token = auth.accessToken;
+    if (token == null) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            String searchQuery = '';
+            return Dialog(
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: FutureBuilder(
+                future: ApiService.getConnections(token),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+                  }
+                  if (snapshot.hasError || !snapshot.hasData) {
+                    return const SizedBox(height: 200, child: Center(child: Text('Failed to load connections')));
+                  }
+                  
+                  final connRes = snapshot.data as http.Response;
+                  if (connRes.statusCode != 200) {
+                    return const SizedBox(height: 200, child: Center(child: Text('Failed to load connections')));
+                  }
+
+                  final List<dynamic> data = jsonDecode(connRes.body);
+                  final filteredData = data.where((c) {
+                    final name = c['full_name'] ?? c['email'] ?? '';
+                    return name.toString().toLowerCase().contains(searchQuery.toLowerCase());
+                  }).toList();
+
+                  return Container(
+                    height: MediaQuery.of(context).size.height * 0.6,
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Forward to...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                        const SizedBox(height: 12),
+                        TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Search connections...',
+                            prefixIcon: const Icon(Icons.search),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surfaceVariant.withValues(alpha: 0.5),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                          ),
+                          onChanged: (val) {
+                            setDialogState(() => searchQuery = val);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        if (filteredData.isEmpty)
+                          const Expanded(child: Center(child: Text('No matching connections')))
+                        else
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: filteredData.length,
+                              itemBuilder: (context, i) {
+                                final c = filteredData[i];
+                                final name = c['full_name'] ?? c['email'] ?? 'User';
+                                final targetUserId = c['user_id'] ?? '';
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                    child: Text(name[0].toUpperCase(), style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+                                  ),
+                                  title: Text(name),
+                                  onTap: () async {
+                                    Navigator.pop(ctx);
+                                    final msgProvider = context.read<MessageProvider>();
+                                    // Get or create thread
+                                    final threadId = await msgProvider.getOrCreateDirectThread(targetUserId);
+                                    if (threadId != null) {
+                                      await msgProvider.sendMessage(threadId, forwardText, isForwarded: true);
+                                      if (threadId == widget.thread.id) {
+                                        setState(() {
+                                          _bubbles.add(_Bubble(
+                                            id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+                                            text: forwardText,
+                                            isMe: true,
+                                            isoTime: DateTime.now().toIso8601String(),
+                                            isForwarded: true,
+                                          ));
+                                        });
+                                        _scrollToBottom();
+                                      }
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Forwarded to $name')));
+                                      }
+                                    }
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showProfileSheet() {
+    final t = widget.thread;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1412,6 +1584,40 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
             ),
           ),
           // ── Input Bar ─────────────────────────────────────────────────
+          if (_replyToIndex != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: theme.colorScheme.surface,
+              child: Row(
+                children: [
+                  Icon(Icons.reply_rounded, color: theme.colorScheme.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _bubbles[_replyToIndex!].isMe ? 'Replying to yourself' : 'Replying to ${_bubbles[_replyToIndex!].senderName}',
+                          style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                        Text(
+                          _bubbles[_replyToIndex!].text,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                    onPressed: () => setState(() => _replyToIndex = null),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
           Container(
             color: theme.colorScheme.surface,
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
@@ -1419,10 +1625,21 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
               top: false,
               child: Row(
                 children: [
-
+                  IconButton(
+                    icon: Icon(_showEmojiPicker ? Icons.keyboard : Icons.emoji_emotions_outlined, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                    onPressed: () {
+                      FocusScope.of(context).unfocus(); // Close keyboard
+                      setState(() => _showEmojiPicker = !_showEmojiPicker);
+                    },
+                    padding: const EdgeInsets.only(right: 8),
+                    constraints: const BoxConstraints(),
+                  ),
                   Expanded(
                     child: TextField(
                       controller: _msgCtrl,
+                      focusNode: FocusNode()..addListener(() {
+                        if (mounted) setState(() => _showEmojiPicker = false);
+                      }),
                       textCapitalization: TextCapitalization.sentences,
                       decoration: InputDecoration(
                         hintText: 'Type a message...',
@@ -1452,6 +1669,25 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
               ),
             ),
           ),
+          if (_showEmojiPicker)
+            SizedBox(
+              height: 250,
+              child: EmojiPicker(
+                textEditingController: _msgCtrl,
+                config: Config(
+                  emojiViewConfig: EmojiViewConfig(
+                    backgroundColor: theme.scaffoldBackgroundColor,
+                    columns: 7,
+                    emojiSizeMax: 32,
+                  ),
+                  bottomActionBarConfig: BottomActionBarConfig(
+                    backgroundColor: theme.scaffoldBackgroundColor,
+                    buttonColor: theme.scaffoldBackgroundColor,
+                    buttonIconColor: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -1465,9 +1701,24 @@ class _Bubble {
   final String id;
   final String text;
   final bool isMe;
-  final String time;
+  final String isoTime;
   final String senderName;
-  const _Bubble({this.id = '', required this.text, required this.isMe, required this.time, this.senderName = ''});
+  final String? replyToText;
+  final String? replyToSender;
+  final bool isForwarded;
+
+  String get time => _MessagesScreenState._formatTime(isoTime);
+
+  const _Bubble({
+    this.id = '', 
+    required this.text, 
+    required this.isMe, 
+    required this.isoTime, 
+    this.senderName = '',
+    this.replyToText,
+    this.replyToSender,
+    this.isForwarded = false,
+  });
 }
 
 class _BubbleWidget extends StatelessWidget {
@@ -1543,9 +1794,59 @@ class _BubbleWidget extends StatelessWidget {
                         BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2)),
                       ],
                     ),
-                    child: Text(
-                      bubble.text,
-                      style: TextStyle(color: isMe ? Colors.white : theme.colorScheme.onSurface, fontSize: 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (bubble.isForwarded)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.shortcut_rounded, size: 12, color: isMe ? Colors.white70 : theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                                const SizedBox(width: 4),
+                                Text('Forwarded', style: TextStyle(fontStyle: FontStyle.italic, fontSize: 10, color: isMe ? Colors.white70 : theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                              ],
+                            ),
+                          ),
+                        if (bubble.replyToText != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            margin: const EdgeInsets.only(bottom: 6),
+                            decoration: BoxDecoration(
+                              color: isMe ? Colors.white.withValues(alpha: 0.15) : theme.colorScheme.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  bubble.replyToSender ?? '',
+                                  style: TextStyle(
+                                    color: isMe ? Colors.white70 : theme.colorScheme.primary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  bubble.replyToText!,
+                                  style: TextStyle(
+                                    color: isMe ? Colors.white.withValues(alpha: 0.85) : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                                    fontSize: 12,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        Text(
+                          bubble.text,
+                          style: TextStyle(color: isMe ? Colors.white : theme.colorScheme.onSurface, fontSize: 14),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 2),

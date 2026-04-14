@@ -218,3 +218,55 @@ curl -i http://localhost:8080/groups/suggested?event_id=<EVENT_ID> \
 curl -i http://localhost:8080/users/matches?event_id=<EVENT_ID> \
   -H "Authorization: Bearer <TOKEN>"
 ```
+
+---
+
+## 3. Messaging Tests (Manual)
+
+### Send a Message (HTTP Fallback)
+```bash
+curl -i -X POST http://localhost:8080/messages/send \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"thread_id": "<THREAD_ID>", "content": "Hello!"}'
+```
+
+### Send a Reply
+```bash
+curl -i -X POST http://localhost:8080/messages/send \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"thread_id": "<THREAD_ID>", "content": "Replying to you!", "reply_to_id": "<MESSAGE_ID>"}'
+```
+*Verify: `GET /messages/<THREAD_ID>` should return the message with `reply_to_content` and `reply_to_sender` populated.*
+
+### Forward a Message
+```bash
+curl -i -X POST http://localhost:8080/messages/send \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"thread_id": "<TARGET_THREAD_ID>", "content": "Forwarded text", "is_forwarded": true}'
+```
+*Verify: `GET /messages/<TARGET_THREAD_ID>` should return the message with `is_forwarded: true`.*
+
+### List Threads
+```bash
+curl -i http://localhost:8080/messages/threads \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+### Delete a Message
+```bash
+curl -i -X DELETE http://localhost:8080/messages/<MESSAGE_ID> \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+### WebSocket Testing
+1. Open two browser tabs at the Flutter web app
+2. Login as two different users
+3. **Reply test**: Long-press a message → Reply → Type response → Send. Verify quoted text appears in both sender and receiver bubbles immediately
+4. **Forward test**: Long-press a message → Forward → Select a connection from dialog → Verify "Forwarded" tag on receiver side
+5. **Emoji test**: Click emoji icon → Select emoji → Verify it appears in the text input
+6. **Presence test**: Verify online/offline indicators update within 1-2 seconds of login/logout
+7. **Timestamp test**: Send a message → Wait 1 minute → Verify timestamp updates from "Now" to "1m ago" without reopening chat
+

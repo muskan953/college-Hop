@@ -785,3 +785,167 @@ Finds the best peer matches for the user at a specific event.
 - Returns top 10 matches
 - Users with zero interest overlap are filtered out
 - Results sorted by `match_score` descending
+
+---
+
+## Messaging
+
+### `GET /messages/threads`
+
+Lists all messaging threads for the authenticated user with unread counts and online status.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Response** `200 OK`:
+```json
+[
+  {
+    "id": "uuid",
+    "name": "Alice Kumar",
+    "other_user_id": "uuid",
+    "last_message": "Hey!",
+    "unread_count": 3,
+    "is_online": true,
+    "avatar_url": "http://localhost:8080/uploads/profile_photo/abc.jpg"
+  }
+]
+```
+
+---
+
+### `GET /messages/{threadId}`
+
+Returns paginated message history for a thread. Messages include reply and forward metadata.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Query Parameters**:
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `before` | ISO 8601 datetime | Return messages before this time (pagination cursor) |
+
+**Response** `200 OK`:
+```json
+[
+  {
+    "id": "uuid",
+    "thread_id": "uuid",
+    "sender_id": "uuid",
+    "sender_name": "Alice Kumar",
+    "content": "Hello!",
+    "created_at": "2026-04-14T12:00:00Z",
+    "reply_to_id": "uuid-or-null",
+    "reply_to_content": "Original message text",
+    "reply_to_sender": "Bob",
+    "is_forwarded": false
+  }
+]
+```
+
+**Notes**:
+- `reply_to_content` and `reply_to_sender` are populated via `LEFT JOIN` when `reply_to_id` is set
+- `is_forwarded` is `true` when message was forwarded from another thread
+- Returns 50 messages per page, newest first
+
+---
+
+### `POST /messages/send`
+
+Sends a message via HTTP (fallback when WebSocket is unavailable).
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Request Body**:
+```json
+{
+  "thread_id": "uuid",
+  "content": "Hello!",
+  "reply_to_id": "uuid-or-null",
+  "is_forwarded": false
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `thread_id` | Yes | Target thread |
+| `content` | Yes | Message text (max 8192 chars) |
+| `reply_to_id` | No | UUID of message being replied to |
+| `is_forwarded` | No | `true` if message is being forwarded |
+
+**Response** `201 Created`:
+```json
+{
+  "message_id": "uuid"
+}
+```
+
+---
+
+### `POST /messages/thread/direct`
+
+Gets or creates a 1:1 direct message thread with another user.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Request Body**:
+```json
+{
+  "user_id": "uuid"
+}
+```
+
+---
+
+### `DELETE /messages/{messageId}`
+
+Deletes a message for all participants ("Unsend for Everyone"). Only the sender can delete.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+| Status | Description |
+|--------|-------------|
+| `204` | Message deleted |
+| `404` | Message not found or not yours |
+
+---
+
+### `POST /messages/threads/{id}/read`
+
+Marks all messages in a thread as read.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+---
+
+### `POST /messages/threads/{id}/clear`
+
+Clears chat history for the authenticated user only (sets `cleared_at`).
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+---
+
+## WebSocket
+
+### `GET /ws?token=<JWT>`
+
+Upgrades to a WebSocket connection for real-time messaging.
+
+### Client → Server Messages
+
+| Type | Payload | Description |
+|------|---------|-------------|
+| `message` | `{thread_id, content, reply_to_id?, is_forwarded?}` | Send a message with optional reply/forward metadata |
+| `typing` | `{thread_id}` | Notify that user is typing |
+
+### Server → Client Messages
+
+| Type | Payload | Description |
+|------|---------|-------------|
+| `new_message` | Full message object (includes `reply_to_content`, `reply_to_sender`, `is_forwarded`) | New incoming message |
+| `message_sent` | `{message_id, thread_id, created_at}` | Confirmation with real message ID |
+| `message_deleted` | `{thread_id, message_id}` | Real-time deletion broadcast |
+| `user_typing` | `{thread_id, user_id}` | Typing indicator |
+| `presence_update` | `{user_id, is_online}` | Online/offline status change |
+| `error` | `{message}` | Error feedback |

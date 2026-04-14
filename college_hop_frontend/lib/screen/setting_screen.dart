@@ -6,6 +6,7 @@ import 'package:college_hop/theme/app_scaffold.dart';
 import 'package:provider/provider.dart';
 import 'package:college_hop/providers/auth_provider.dart';
 import 'package:college_hop/providers/profile_provider.dart';
+import 'package:college_hop/providers/message_provider.dart';
 import 'help_screen.dart';
 import 'legal_info_screen.dart';
 
@@ -66,6 +67,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _doLogout() async {
     await context.read<AuthProvider>().logout();
     if (!mounted) return;
+    context.read<MessageProvider>().reset();
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const _SplashRedirect()),
       (_) => false,

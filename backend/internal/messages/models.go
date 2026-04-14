@@ -27,20 +27,26 @@ type ThreadSummary struct {
 
 // Message represents a single chat message.
 type Message struct {
-	ID         string    `json:"id"`
-	ThreadID   string    `json:"thread_id"`
-	SenderID   string    `json:"sender_id"`
-	SenderName string    `json:"sender_name"`
-	Content    string    `json:"content"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID              string    `json:"id"`
+	ThreadID        string    `json:"thread_id"`
+	SenderID        string    `json:"sender_id"`
+	SenderName      string    `json:"sender_name"`
+	Content         string    `json:"content"`
+	CreatedAt       time.Time `json:"created_at"`
+	ReplyToID       *string   `json:"reply_to_id,omitempty"`
+	IsForwarded     bool      `json:"is_forwarded"`
+	ReplyToContent  *string   `json:"reply_to_content,omitempty"`
+	ReplyToSender   *string   `json:"reply_to_sender,omitempty"`
 }
 
 // --- Request DTOs ---
 
 // SendMessageRequest is the payload for POST /messages and WS "message" type.
 type SendMessageRequest struct {
-	ThreadID string `json:"thread_id"`
-	Content  string `json:"content"`
+	ThreadID    string  `json:"thread_id"`
+	Content     string  `json:"content"`
+	ReplyToID   *string `json:"reply_to_id,omitempty"`
+	IsForwarded bool    `json:"is_forwarded"`
 }
 
 // CreateDirectThreadRequest is the payload for POST /messages/thread/direct.
@@ -52,9 +58,11 @@ type CreateDirectThreadRequest struct {
 
 // WSIncoming represents a message received from a client over WebSocket.
 type WSIncoming struct {
-	Type     string `json:"type"`      // "message", "typing"
-	ThreadID string `json:"thread_id"` // target thread
-	Content  string `json:"content"`   // message body (for "message" type)
+	Type        string  `json:"type"`      // "message", "typing"
+	ThreadID    string  `json:"thread_id"` // target thread
+	Content     string  `json:"content"`   // message body (for "message" type)
+	ReplyToID   *string `json:"reply_to_id,omitempty"`
+	IsForwarded bool    `json:"is_forwarded"`
 }
 
 // WSOutgoing represents a message sent to a client over WebSocket.

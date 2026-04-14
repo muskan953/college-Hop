@@ -15,6 +15,10 @@ class WebSocketService {
   bool _disposed = false;
   bool _intentionalClose = false;
 
+  /// Monotonically increasing generation ID. Every call to connect() bumps
+  /// this so that listeners from old channels can detect they are stale.
+  int _generation = 0;
+
   /// Stream of incoming WebSocket messages.
   Stream<Map<String, dynamic>> get messageStream => _messageController.stream;
 
@@ -24,6 +28,20 @@ class WebSocketService {
   /// Connect to the WebSocket server with the given JWT token.
   void connect(String token) {
     if (_disposed) return;
+
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+
+    // Bump generation so any old channel listeners become stale.
+    final gen = ++_generation;
+
+    // Close previous channel (if any) without triggering reconnect.
+    if (_channel != null) {
+      final old = _channel!;
+      _channel = null; // null BEFORE close so old onDone is a no-op
+      old.sink.close();
+    }
+
     _currentToken = token;
     _intentionalClose = false;
 
@@ -36,37 +54,41 @@ class WebSocketService {
         Uri.parse('$wsUrl/ws?token=$token'),
       );
 
-      debugPrint('[WS] Connecting (attempt $_reconnectAttempts)');
+      debugPrint('[WS] Connecting (attempt $_reconnectAttempts, gen $gen)');
 
       _channel!.stream.listen(
         _onMessage,
-        onDone: _onDisconnect,
+        onDone: () {
+          if (_generation == gen) _onDisconnect();
+        },
         onError: (error) {
           debugPrint('[WS] Error: $error');
-          _onDisconnect();
+          if (_generation == gen) _onDisconnect();
         },
       );
 
-      // Only reset counter if we successfully stay connected
+      // Only reset counter if we successfully stay connected for 5s
       Future.delayed(const Duration(seconds: 5), () {
-        if (_channel != null && !_disposed) {
+        if (_generation == gen && _channel != null && !_disposed) {
           _reconnectAttempts = 0;
-          debugPrint('[WS] Connection stable');
+          debugPrint('[WS] Connection stable (gen $gen)');
         }
       });
     } catch (e) {
       debugPrint('[WS] Connection failed: $e');
       _channel = null;
-      _scheduleReconnect();
+      if (_generation == gen) _scheduleReconnect();
     }
   }
 
   /// Send a message through the WebSocket.
-  void sendMessage(String threadId, String content) {
+  void sendMessage(String threadId, String content, {String? replyToId, bool isForwarded = false}) {
     _send({
       'type': 'message',
       'thread_id': threadId,
       'content': content,
+      if (replyToId != null) 'reply_to_id': replyToId,
+      'is_forwarded': isForwarded,
     });
   }
 
@@ -83,8 +105,10 @@ class WebSocketService {
     _intentionalClose = true;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
-    _channel?.sink.close();
+    ++_generation; // invalidate any pending listeners
+    final ch = _channel;
     _channel = null;
+    ch?.sink.close();
   }
 
   /// Permanently dispose this service.
@@ -121,7 +145,6 @@ class WebSocketService {
 
   void _scheduleReconnect() {
     if (_disposed || _currentToken == null) return;
-    // Cap at 10 retries (~60s max delay)
     if (_reconnectAttempts >= 10) {
       debugPrint('[WS] Max reconnect attempts reached, giving up');
       return;

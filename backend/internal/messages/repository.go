@@ -15,7 +15,7 @@ type Repository interface {
 
 	// Messages
 	GetMessages(ctx context.Context, threadID, userID string, before time.Time, limit int) ([]Message, error)
-	CreateMessage(ctx context.Context, threadID, senderID, content string) (Message, error)
+	CreateMessage(ctx context.Context, threadID, senderID, content string, replyToID *string, isForwarded bool) (Message, error)
 	DeleteMessage(ctx context.Context, messageID, userID string) (string, error)
 
 	// Thread management
@@ -206,9 +206,14 @@ func (r *PostgresRepository) GetMessages(ctx context.Context, threadID, userID s
 	}
 
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT m.id, m.thread_id, COALESCE(m.sender_id::text, ''), COALESCE(p.full_name, 'Deleted User'), m.content, m.created_at
+		SELECT 
+			m.id, m.thread_id, COALESCE(m.sender_id::text, ''), COALESCE(p.full_name, 'Deleted User'), 
+			m.content, m.created_at, m.reply_to_id, m.is_forwarded,
+			rm.content AS reply_to_content, COALESCE(rp.full_name, 'Deleted User') AS reply_to_sender
 		FROM messages m
 		LEFT JOIN profiles p ON p.user_id = m.sender_id
+		LEFT JOIN messages rm ON rm.id = m.reply_to_id
+		LEFT JOIN profiles rp ON rp.user_id = rm.sender_id
 		JOIN thread_participants tp ON tp.thread_id = m.thread_id AND tp.user_id = $3
 		WHERE m.thread_id = $1
 		  AND m.created_at < $2
@@ -224,7 +229,7 @@ func (r *PostgresRepository) GetMessages(ctx context.Context, threadID, userID s
 	var msgs []Message
 	for rows.Next() {
 		var m Message
-		if err := rows.Scan(&m.ID, &m.ThreadID, &m.SenderID, &m.SenderName, &m.Content, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.ThreadID, &m.SenderID, &m.SenderName, &m.Content, &m.CreatedAt, &m.ReplyToID, &m.IsForwarded, &m.ReplyToContent, &m.ReplyToSender); err != nil {
 			return nil, err
 		}
 		msgs = append(msgs, m)
@@ -233,18 +238,23 @@ func (r *PostgresRepository) GetMessages(ctx context.Context, threadID, userID s
 }
 
 // CreateMessage inserts a new message and returns it with the sender name.
-func (r *PostgresRepository) CreateMessage(ctx context.Context, threadID, senderID, content string) (Message, error) {
+func (r *PostgresRepository) CreateMessage(ctx context.Context, threadID, senderID, content string, replyToID *string, isForwarded bool) (Message, error) {
 	var m Message
 	err := r.db.QueryRowContext(ctx, `
 		WITH inserted AS (
-			INSERT INTO messages (thread_id, sender_id, content)
-			VALUES ($1, $2, $3)
-			RETURNING id, thread_id, sender_id, content, created_at
+			INSERT INTO messages (thread_id, sender_id, content, reply_to_id, is_forwarded)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING id, thread_id, sender_id, content, created_at, reply_to_id, is_forwarded
 		)
-		SELECT i.id, i.thread_id, i.sender_id::text, COALESCE(p.full_name, 'Unknown'), i.content, i.created_at
+		SELECT 
+			i.id, i.thread_id, COALESCE(i.sender_id::text, ''), COALESCE(p.full_name, 'Deleted User'), 
+			i.content, i.created_at, i.reply_to_id, i.is_forwarded,
+			rm.content AS reply_to_content, COALESCE(rp.full_name, 'Deleted User') AS reply_to_sender
 		FROM inserted i
 		LEFT JOIN profiles p ON p.user_id = i.sender_id
-	`, threadID, senderID, content).Scan(&m.ID, &m.ThreadID, &m.SenderID, &m.SenderName, &m.Content, &m.CreatedAt)
+		LEFT JOIN messages rm ON rm.id = i.reply_to_id
+		LEFT JOIN profiles rp ON rp.user_id = rm.sender_id
+	`, threadID, senderID, content, replyToID, isForwarded).Scan(&m.ID, &m.ThreadID, &m.SenderID, &m.SenderName, &m.Content, &m.CreatedAt, &m.ReplyToID, &m.IsForwarded, &m.ReplyToContent, &m.ReplyToSender)
 	return m, err
 }
 

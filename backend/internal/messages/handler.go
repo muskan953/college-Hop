@@ -154,7 +154,7 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	msg, err := h.repo.CreateMessage(r.Context(), req.ThreadID, user.ID, req.Content)
+	msg, err := h.repo.CreateMessage(r.Context(), req.ThreadID, user.ID, req.Content, req.ReplyToID, req.IsForwarded)
 	if err != nil {
 		http.Error(w, "failed to send message", http.StatusInternalServerError)
 		return

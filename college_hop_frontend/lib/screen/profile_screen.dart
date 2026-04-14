@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:college_hop/providers/auth_provider.dart';
 import 'package:college_hop/providers/profile_provider.dart';
+import 'package:college_hop/providers/message_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -524,6 +525,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () async {
               await context.read<AuthProvider>().logout();
               if (!context.mounted) return;
+              context.read<MessageProvider>().reset();
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const SplashScreen()),
                 (_) => false,

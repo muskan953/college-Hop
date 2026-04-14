@@ -85,7 +85,7 @@ class MessageProvider with ChangeNotifier {
   }
 
   /// Send a message via WebSocket (primary) or HTTP (fallback).
-  Future<String?> sendMessage(String threadId, String content) async {
+  Future<String?> sendMessage(String threadId, String content, {String? replyToId, String? replyToContent, String? replyToSender, bool isForwarded = false}) async {
     if (_currentToken == null) return null;
 
     // Optimistic UI: add the message locally
@@ -97,12 +97,16 @@ class MessageProvider with ChangeNotifier {
       'content': content,
       'created_at': DateTime.now().toIso8601String(),
       'status': 'sending',
+      if (replyToId != null) 'reply_to_id': replyToId,
+      if (replyToContent != null) 'reply_to_content': replyToContent,
+      if (replyToSender != null) 'reply_to_sender': replyToSender,
+      'is_forwarded': isForwarded,
     };
     messages.add(optimistic);
     notifyListeners();
 
     if (_ws.isConnected) {
-      _ws.sendMessage(threadId, content);
+      _ws.sendMessage(threadId, content, replyToId: replyToId, isForwarded: isForwarded);
       return null;
     } else {
       // HTTP fallback
@@ -110,6 +114,8 @@ class MessageProvider with ChangeNotifier {
         final res = await ApiService.sendMessage(_currentToken!, {
           'thread_id': threadId,
           'content': content,
+          if (replyToId != null) 'reply_to_id': replyToId,
+          'is_forwarded': isForwarded,
         });
         if (res.statusCode == 201) {
           final msg = jsonDecode(res.body);
@@ -174,6 +180,17 @@ class MessageProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('[MsgProvider] Failed to delete message: $e');
     }
+  }
+
+  /// Reset the message provider state and actively tear down connections (e.g. on logout)
+  void reset() {
+    _ws.disconnect();
+    _currentToken = null;
+    _initialized = false;
+    threads.clear();
+    messages.clear();
+    activeThreadId = null;
+    notifyListeners();
   }
 
   /// Handle incoming WebSocket messages.
