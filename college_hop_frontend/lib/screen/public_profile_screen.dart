@@ -8,7 +8,8 @@ import 'package:college_hop/theme/app_scaffold.dart';
 class PublicProfileScreen extends StatefulWidget {
   final String userId;
   final bool isConnected;
-  const PublicProfileScreen({super.key, required this.userId, this.isConnected = false});
+  final Color? avatarColor;
+  const PublicProfileScreen({super.key, required this.userId, this.isConnected = false, this.avatarColor});
 
   @override
   State<PublicProfileScreen> createState() => _PublicProfileScreenState();
@@ -292,10 +293,12 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                 decoration: BoxDecoration(color: theme.scaffoldBackgroundColor, shape: BoxShape.circle),
                 child: CircleAvatar(
                   radius: 41,
-                  backgroundColor: Colors.white,
+                  backgroundColor: hasPhoto
+                      ? Colors.white
+                      : (widget.avatarColor ?? colorScheme.primary).withValues(alpha: 0.15),
                   backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
                   child: !hasPhoto
-                      ? Text(initials, style: TextStyle(color: colorScheme.primary, fontSize: 24, fontWeight: FontWeight.bold))
+                      ? Text(initials, style: TextStyle(color: widget.avatarColor ?? colorScheme.primary, fontSize: 24, fontWeight: FontWeight.bold))
                       : null,
                 ),
               ),

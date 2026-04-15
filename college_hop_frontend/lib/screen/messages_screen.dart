@@ -1561,7 +1561,11 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
                 ),
               ),
               Expanded(
-                child: PublicProfileScreen(userId: widget.thread.otherUserId ?? '', isConnected: true),
+                child: PublicProfileScreen(
+                  userId: widget.thread.otherUserId ?? '',
+                  isConnected: true,
+                  avatarColor: widget.thread.avatarColor,
+                ),
               ),
             ],
           ),
