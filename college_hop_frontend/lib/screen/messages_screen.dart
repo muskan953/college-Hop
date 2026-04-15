@@ -854,6 +854,22 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
   final Set<int> _selectedIndices = {};
   bool get _isSelecting => _selectedIndices.isNotEmpty;
 
+  // ── Search state ─────────────────────────────────────────────────────
+  bool _searchMode = false;
+  String _searchQuery = '';
+  final TextEditingController _chatSearchCtrl = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  int _currentMatchIndex = 0; // which match is focused
+
+  List<int> get _matchIndices {
+    if (_searchQuery.isEmpty) return [];
+    final q = _searchQuery.toLowerCase();
+    return [
+      for (int i = 0; i < _bubbles.length; i++)
+        if (_bubbles[i].text.toLowerCase().contains(q)) i,
+    ];
+  }
+
   void _toggleSelect(int index) {
     setState(() {
       if (_selectedIndices.contains(index)) {
@@ -950,6 +966,8 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
     _pollTimer?.cancel();
     _msgCtrl.dispose();
     _scrollCtrl.dispose();
+    _chatSearchCtrl.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -1400,6 +1418,122 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
       }
     });
   }
+  /// Scrolls the list so the bubble at [bubbleIndex] is visible.
+  void _scrollToMatch(int bubbleIndex) {
+    if (!_scrollCtrl.hasClients) return;
+    // Estimate: each bubble ~72px height. Scroll so match is roughly 1/3 down.
+    final estimate = bubbleIndex * 72.0;
+    _scrollCtrl.animateTo(
+      estimate.clamp(0.0, _scrollCtrl.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
+  Widget _buildChatSearchBar(ThemeData theme) {
+    final matches = _matchIndices;
+    final total = matches.length;
+    final current = total > 0 ? _currentMatchIndex + 1 : 0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _chatSearchCtrl,
+              focusNode: _searchFocusNode,
+              onChanged: (v) {
+                setState(() {
+                  _searchQuery = v;
+                  _currentMatchIndex = 0;
+                });
+                if (_matchIndices.isNotEmpty) _scrollToMatch(_matchIndices[0]);
+              },
+              style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface),
+              decoration: InputDecoration(
+                hintText: 'Search in chat...',
+                hintStyle: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 14),
+                prefixIcon: Icon(Icons.search, size: 20, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                filled: true,
+                fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide.none,
+                ),
+                isDense: true,
+              ),
+            ),
+          ),
+          if (_searchQuery.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            Text(
+              '$current/$total',
+              style: TextStyle(
+                fontSize: 12,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 2),
+            // Previous match
+            IconButton(
+              onPressed: total > 0
+                  ? () {
+                      setState(() {
+                        _currentMatchIndex = (_currentMatchIndex - 1 + total) % total;
+                      });
+                      _scrollToMatch(matches[_currentMatchIndex]);
+                    }
+                  : null,
+              icon: Icon(Icons.keyboard_arrow_up, size: 22, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+            // Next match
+            IconButton(
+              onPressed: total > 0
+                  ? () {
+                      setState(() {
+                        _currentMatchIndex = (_currentMatchIndex + 1) % total;
+                      });
+                      _scrollToMatch(matches[_currentMatchIndex]);
+                    }
+                  : null,
+              icon: Icon(Icons.keyboard_arrow_down, size: 22, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+          ],
+          // Close
+          IconButton(
+            onPressed: () {
+              setState(() {
+                _searchMode = false;
+                _searchQuery = '';
+                _chatSearchCtrl.clear();
+                _currentMatchIndex = 0;
+              });
+            },
+            icon: Icon(Icons.close, size: 20, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _showProfileSheet() {
     final t = widget.thread;
@@ -1427,7 +1561,7 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
                 ),
               ),
               Expanded(
-                child: PublicProfileScreen(userId: widget.thread.id),
+                child: PublicProfileScreen(userId: widget.thread.otherUserId ?? ''),
               ),
             ],
           ),
@@ -1549,9 +1683,15 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
                     _showProfileSheet();
                     break;
                   case 'search':
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Search coming soon'), duration: Duration(seconds: 2)),
-                    );
+                    setState(() {
+                      _searchMode = true;
+                      _searchQuery = '';
+                      _chatSearchCtrl.clear();
+                      _currentMatchIndex = 0;
+                    });
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      _searchFocusNode.requestFocus();
+                    });
                     break;
                   case 'mute':
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -1674,6 +1814,9 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
       ),
       body: Column(
         children: [
+          // ── Search Bar ─────────────────────────────────────────────────
+          if (_searchMode)
+            _buildChatSearchBar(theme),
           // ── Messages ──────────────────────────────────────────────────
           Expanded(
             child: _loading 
@@ -1689,6 +1832,8 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
                 isSelecting: _isSelecting,
                 onLongPress: () => _showMessageActions(i),
                 onTapInSelectMode: () => _toggleSelect(i),
+                searchQuery: _searchMode ? _searchQuery : '',
+                isSearchHighlighted: _searchMode && _matchIndices.isNotEmpty && _matchIndices.indexOf(i) == _currentMatchIndex,
               ),
             ),
           ),
@@ -1837,6 +1982,8 @@ class _BubbleWidget extends StatelessWidget {
   final bool isSelecting;
   final VoidCallback onLongPress;
   final VoidCallback onTapInSelectMode;
+  final String searchQuery;
+  final bool isSearchHighlighted;
 
   const _BubbleWidget({
     required this.bubble,
@@ -1845,6 +1992,8 @@ class _BubbleWidget extends StatelessWidget {
     required this.isSelecting,
     required this.onLongPress,
     required this.onTapInSelectMode,
+    this.searchQuery = '',
+    this.isSearchHighlighted = false,
   });
 
   @override
@@ -1857,9 +2006,11 @@ class _BubbleWidget extends StatelessWidget {
       onTap: isSelecting ? onTapInSelectMode : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        color: isSelected
-            ? theme.colorScheme.primary.withValues(alpha: 0.08)
-            : Colors.transparent,
+        color: isSearchHighlighted
+            ? Colors.yellow.withValues(alpha: 0.15)
+            : isSelected
+                ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                : Colors.transparent,
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
@@ -1951,10 +2102,12 @@ class _BubbleWidget extends StatelessWidget {
                             ),
                           ),
                         ],
-                        Text(
-                          bubble.text,
-                          style: TextStyle(color: isMe ? Colors.white : theme.colorScheme.onSurface, fontSize: 14),
-                        ),
+                        searchQuery.isNotEmpty
+                          ? _highlightedText(bubble.text, searchQuery, isMe, theme)
+                          : Text(
+                              bubble.text,
+                              style: TextStyle(color: isMe ? Colors.white : theme.colorScheme.onSurface, fontSize: 14),
+                            ),
                       ],
                     ),
                   ),
@@ -1969,6 +2122,44 @@ class _BubbleWidget extends StatelessWidget {
             if (isMe && !isSelecting) const SizedBox(width: 4),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Builds a RichText with search matches highlighted in yellow.
+  static Widget _highlightedText(String text, String query, bool isMe, ThemeData theme) {
+    if (query.isEmpty) {
+      return Text(text, style: TextStyle(color: isMe ? Colors.white : theme.colorScheme.onSurface, fontSize: 14));
+    }
+    final lowerText = text.toLowerCase();
+    final lowerQuery = query.toLowerCase();
+    final spans = <TextSpan>[];
+    int start = 0;
+
+    while (true) {
+      final idx = lowerText.indexOf(lowerQuery, start);
+      if (idx == -1) {
+        spans.add(TextSpan(text: text.substring(start)));
+        break;
+      }
+      if (idx > start) {
+        spans.add(TextSpan(text: text.substring(start, idx)));
+      }
+      spans.add(TextSpan(
+        text: text.substring(idx, idx + query.length),
+        style: TextStyle(
+          backgroundColor: Colors.yellow.withValues(alpha: isMe ? 0.45 : 0.5),
+          color: isMe ? Colors.white : theme.colorScheme.onSurface,
+          fontWeight: FontWeight.bold,
+        ),
+      ));
+      start = idx + query.length;
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(color: isMe ? Colors.white : theme.colorScheme.onSurface, fontSize: 14),
+        children: spans,
       ),
     );
   }
