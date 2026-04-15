@@ -237,7 +237,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
           final name = c['full_name'] ?? c['email'] ?? 'User';
           return _Connection(
             c['user_id'] ?? '',
-            name.split(' ').first,
+            name,
             _colorFromId(c['user_id'] ?? ''),
             false,
           );
@@ -487,7 +487,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            conn.name,
+                            conn.name.split(' ').first,
                             style: theme.textTheme.labelSmall?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
@@ -1561,7 +1561,7 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
                 ),
               ),
               Expanded(
-                child: PublicProfileScreen(userId: widget.thread.otherUserId ?? ''),
+                child: PublicProfileScreen(userId: widget.thread.otherUserId ?? '', isConnected: true),
               ),
             ],
           ),
@@ -2007,7 +2007,7 @@ class _BubbleWidget extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         color: isSearchHighlighted
-            ? Colors.yellow.withValues(alpha: 0.15)
+            ? const Color(0xFF4FC3F7).withValues(alpha: 0.1)
             : isSelected
                 ? theme.colorScheme.primary.withValues(alpha: 0.08)
                 : Colors.transparent,
@@ -2148,7 +2148,9 @@ class _BubbleWidget extends StatelessWidget {
       spans.add(TextSpan(
         text: text.substring(idx, idx + query.length),
         style: TextStyle(
-          backgroundColor: Colors.yellow.withValues(alpha: isMe ? 0.45 : 0.5),
+          backgroundColor: isMe
+              ? Colors.white.withValues(alpha: 0.3)
+              : const Color(0xFF4FC3F7).withValues(alpha: 0.35),
           color: isMe ? Colors.white : theme.colorScheme.onSurface,
           fontWeight: FontWeight.bold,
         ),

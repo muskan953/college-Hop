@@ -7,7 +7,8 @@ import 'package:college_hop/theme/app_scaffold.dart';
 
 class PublicProfileScreen extends StatefulWidget {
   final String userId;
-  const PublicProfileScreen({super.key, required this.userId});
+  final bool isConnected;
+  const PublicProfileScreen({super.key, required this.userId, this.isConnected = false});
 
   @override
   State<PublicProfileScreen> createState() => _PublicProfileScreenState();
@@ -18,7 +19,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   bool _loading = true;
   String? _error;
   bool _connecting = false;
-  bool _connected = false;
+  late bool _connected = widget.isConnected;
 
   @override
   void initState() {
