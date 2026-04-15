@@ -75,3 +75,5 @@ func TestAuthRepository_RateLimit(t *testing.T) {
 		t.Error("Expected CanRequestOTP to be false immediately after request")
 	}
 }
+
+

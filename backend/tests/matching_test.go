@@ -103,3 +103,5 @@ func TestFindCommonInterests_NoCommon(t *testing.T) {
 		t.Errorf("expected 0 common interests, got %d: %v", len(common), common)
 	}
 }
+
+

@@ -245,6 +245,143 @@ Creates or updates the authenticated user's profile.
 
 ---
 
+### `GET /me/preferences`
+
+Returns the authenticated user's privacy and notification preferences.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Response** `200 OK`:
+```json
+{
+  "profile_visibility": "public",
+  "show_location": false,
+  "push_notifications": true,
+  "email_notifications": true,
+  "new_match_alerts": true,
+  "message_alerts": true
+}
+```
+
+| Status | Description |
+|--------|-------------|
+| `200` | Preferences returned |
+| `401` | Missing or invalid token |
+| `403` | Account has been blocked |
+
+---
+
+### `PUT /me/preferences`
+
+Updates the authenticated user's privacy and notification preferences.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Request Body**:
+```json
+{
+  "profile_visibility": "connections",
+  "show_location": true,
+  "push_notifications": true,
+  "email_notifications": false,
+  "new_match_alerts": true,
+  "message_alerts": true
+}
+```
+
+**Validation Rules**:
+
+| Field | Constraint |
+|-------|-----------|
+| `profile_visibility` | Must be one of: `public`, `connections`, `private`. Defaults to `public` if empty |
+
+**Responses**:
+
+| Status | Description |
+|--------|-------------|
+| `200` | `preferences updated` |
+| `400` | Invalid `profile_visibility` value |
+| `401` | Missing or invalid token |
+| `403` | Account has been blocked |
+
+---
+
+### `POST /me/alternate-email/request-otp`
+
+Sends an OTP to the proposed alternate (personal) email to verify ownership.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Request Body**:
+```json
+{
+  "email": "user@gmail.com"
+}
+```
+
+**Responses**:
+
+| Status | Body | Description |
+|--------|------|-------------|
+| `200` | `{"message": "OTP sent"}` | OTP generated and delivered |
+| `400` | `invalid email address` | Email validation failed |
+| `401` | — | Missing or invalid token |
+| `403` | — | Account has been blocked |
+| `429` | `please wait before requesting another OTP` | Cooldown active |
+
+---
+
+### `POST /me/alternate-email/verify`
+
+Verifies the OTP and saves the alternate email to the user's profile.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Request Body**:
+```json
+{
+  "email": "user@gmail.com",
+  "otp": "123456"
+}
+```
+
+**Responses**:
+
+| Status | Body | Description |
+|--------|------|-------------|
+| `200` | `{"message": "alternate email verified and saved"}` | Success |
+| `400` | `email and otp are required` | Missing fields |
+| `401` | `invalid or expired OTP` | OTP verification failed |
+| `403` | — | Account has been blocked |
+
+---
+
+### `GET /me/connections`
+
+Returns all confirmed connections for the authenticated user.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Response** `200 OK`:
+```json
+[
+  {
+    "user_id": "uuid",
+    "email": "alice@nitw.ac.in",
+    "full_name": "Alice Kumar",
+    "profile_photo_url": "http://localhost:8080/uploads/profile_photo/abc.jpg"
+  }
+]
+```
+
+| Status | Description |
+|--------|-------------|
+| `200` | List of connections (may be empty `[]`) |
+| `401` | Missing or invalid token |
+| `403` | Account has been blocked |
+
+---
+
 ## File Upload
 
 ### `POST /upload`
@@ -485,6 +622,41 @@ Returns the user's currently selected event.
 
 ---
 
+### `GET /me/events`
+
+Returns all events the authenticated user has selected (interested/going/looking_for_group).
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Response** `200 OK`:
+```json
+[
+  {
+    "id": "uuid",
+    "name": "TechFest 2026",
+    "category": "Technical Fest",
+    "venue": "NIT Warangal",
+    "organizer": "CSE Dept",
+    "start_date": "2026-03-15T00:00:00Z",
+    "end_date": "2026-03-17T00:00:00Z",
+    "status": "approved",
+    "user_status": "interested"
+  }
+]
+```
+
+**Notes**:
+- Returns an empty array `[]` when the user hasn't selected any events.
+- `user_status` is the user's relationship to the event (e.g. `interested`, `going`, `looking_for_group`).
+
+| Status | Description |
+|--------|-------------|
+| `200` | List of user events (may be empty) |
+| `401` | Missing or invalid token |
+| `403` | Account has been blocked |
+
+---
+
 ### `GET /me/groups`
 
 Returns all travel groups the authenticated user is currently a member of.
@@ -558,7 +730,93 @@ Rejects a pending event.
 
 ---
 
+## Public Profiles & Connections
+
+### `GET /users/{id}`
+
+Returns a user's public profile. Requires authentication to prevent scraping.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Response** `200 OK`:
+```json
+{
+  "user_id": "uuid",
+  "full_name": "Alice Kumar",
+  "college_name": "NIT Warangal",
+  "major": "CSE",
+  "bio": "Loves hackathons",
+  "profile_photo_url": "http://localhost:8080/uploads/profile_photo/abc.jpg",
+  "interests": ["AI", "ML"],
+  "is_alumni": false,
+  "is_verified": true
+}
+```
+
+| Status | Description |
+|--------|-------------|
+| `200` | Public profile returned |
+| `400` | Missing user ID |
+| `401` | Missing or invalid token |
+| `403` | Account has been blocked |
+| `404` | User not found |
+
+---
+
+### `POST /users/{id}/connect`
+
+Creates a connection between the authenticated user and the target user.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Responses**:
+
+| Status | Body | Description |
+|--------|------|-------------|
+| `201` | `{"message": "connected"}` | Connection created |
+| `400` | `cannot connect with yourself` / `missing user id` | Invalid request |
+| `401` | — | Missing or invalid token |
+| `403` | — | Account has been blocked |
+| `500` | `failed to create connection` | Server error |
+
+**Notes**:
+- Duplicate connections are silently ignored (upsert behavior).
+
+---
+
 ## Travel Groups
+
+### `GET /groups`
+
+Lists all travel groups with an `is_joined` flag for the requesting user.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Response** `200 OK`:
+```json
+[
+  {
+    "id": "uuid",
+    "event_id": "uuid",
+    "name": "Team Alpha",
+    "description": "Looking for travel buddies",
+    "created_by": "uuid",
+    "max_members": 4,
+    "created_at": "2026-03-01T00:00:00Z",
+    "member_count": 3,
+    "match_score": 0,
+    "interests": null
+  }
+]
+```
+
+| Status | Description |
+|--------|-------------|
+| `200` | List of all groups |
+| `401` | Missing or invalid token |
+| `403` | Account has been blocked |
+
+---
 
 ### `POST /groups`
 
@@ -923,6 +1181,38 @@ Marks all messages in a thread as read.
 Clears chat history for the authenticated user only (sets `cleared_at`).
 
 **Auth**: `Authorization: Bearer <access_token>`
+
+---
+
+## Push Notifications
+
+### `POST /me/device-token`
+
+Registers a device token (FCM) for push notifications.
+
+**Auth**: `Authorization: Bearer <access_token>`
+
+**Request Body**:
+```json
+{
+  "token": "fcm-device-token-string",
+  "platform": "android"
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `token` | Yes | FCM device token |
+| `platform` | No | Device platform. Defaults to `android` if not provided |
+
+**Responses**:
+
+| Status | Body | Description |
+|--------|------|-------------|
+| `200` | `{"message": "token registered"}` | Token saved/updated |
+| `400` | `token is required` | Missing token field |
+| `401` | — | Missing or invalid token |
+| `403` | — | Account has been blocked |
 
 ---
 

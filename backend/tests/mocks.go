@@ -119,8 +119,20 @@ func (m *MockProfileRepository) GetPublicProfile(ctx context.Context, userID str
 func (m *MockProfileRepository) CreateConnection(ctx context.Context, userID1, userID2 string) error {
 	return nil
 }
+func (m *MockProfileRepository) GetConnections(ctx context.Context, userID string) ([]profile.ConnectionResponse, error) {
+	return []profile.ConnectionResponse{}, nil
+}
 func (m *MockProfileRepository) SaveAlternateEmail(ctx context.Context, userID, email string) error {
 	return nil
+}
+func (m *MockProfileRepository) BlockUser(ctx context.Context, blockerID, blockedID string) error {
+	return nil
+}
+func (m *MockProfileRepository) UnblockUser(ctx context.Context, blockerID, blockedID string) error {
+	return nil
+}
+func (m *MockProfileRepository) GetBlockedUsers(ctx context.Context, userID string) ([]profile.BlockedUserResponse, error) {
+	return []profile.BlockedUserResponse{}, nil
 }
 
 // ensure MockFileStorage implements storage.FileStorage
@@ -248,3 +260,5 @@ func (m *MockGroupsRepository) GetUserGroups(ctx context.Context, userID string)
 func (m *MockGroupsRepository) GetAllGroups(ctx context.Context, userID string) ([]groups.GroupWithDetails, error) {
 	return []groups.GroupWithDetails{}, nil
 }
+
+

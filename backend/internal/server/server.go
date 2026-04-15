@@ -66,6 +66,9 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 	// Protected: get user connections
 	mux.Handle("/me/connections", authMW(http.HandlerFunc(profileHandler.GetConnections)))
 
+	// Protected: get blocked users list
+	mux.Handle("/me/blocked", authMW(http.HandlerFunc(profileHandler.GetBlockedUsers)))
+
 	// Upload route (protected by auth)
 	uploadHandler := upload.NewHandler(store)
 	mux.Handle("/upload", authMW(http.HandlerFunc(uploadHandler.Upload)))
@@ -197,6 +200,10 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 		switch {
 		case strings.HasSuffix(path, "/connect") && r.Method == http.MethodPost:
 			profileHandler.ConnectUser(w, r)
+		case strings.HasSuffix(path, "/block") && r.Method == http.MethodPost:
+			profileHandler.BlockUser(w, r)
+		case strings.HasSuffix(path, "/unblock") && r.Method == http.MethodPost:
+			profileHandler.UnblockUser(w, r)
 		case r.Method == http.MethodGet:
 			profileHandler.GetPublicProfile(w, r)
 		default:

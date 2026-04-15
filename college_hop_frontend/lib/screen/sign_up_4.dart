@@ -164,9 +164,33 @@ class _SignUpStep4State extends State<SignUpStep4> {
                         ),
                       )
                     : TextButton(
-                        onPressed: () {
+                        onPressed: () async {
                           startTimer();
-                          // Call resend OTP API here
+                          try {
+                            final email = Provider.of<SignUpProvider>(context, listen: false).email;
+                            final res = await ApiService.signup(email);
+                            if (mounted) {
+                              if (res.statusCode == 200) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("A new verification code has been sent")),
+                                );
+                              } else if (res.statusCode == 429) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("Please wait before requesting another code")),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text("Failed to resend code: ${res.body}")),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Connection failed. Please try again.")),
+                              );
+                            }
+                          }
                         },
                         child: Text(
                           "Resend Code",

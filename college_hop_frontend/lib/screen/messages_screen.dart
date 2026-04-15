@@ -1491,12 +1491,39 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
                         actions: [
                           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
                           TextButton(
-                            onPressed: () {
+                            onPressed: () async {
                               Navigator.pop(ctx);
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('User blocked'), duration: Duration(seconds: 2)),
-                              );
+                              
+                              final otherId = widget.thread.otherUserId;
+                              if (otherId == null || otherId.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Cannot block this chat')),
+                                );
+                                return;
+                              }
+                              
+                              final token = context.read<AuthProvider>().accessToken;
+                              if (token == null) return;
+                              
+                              try {
+                                final res = await ApiService.blockUser(token, otherId);
+                                if (!mounted) return;
+                                if (res.statusCode == 200) {
+                                  Navigator.pop(context); // Close chat thread
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('${widget.thread.name} has been blocked')),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Failed to block user')),
+                                  );
+                                }
+                              } catch (e) {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Connection failed')),
+                                );
+                              }
                             },
                             child: Text('Block', style: TextStyle(color: theme.colorScheme.error)),
                           ),

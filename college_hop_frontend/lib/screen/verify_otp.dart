@@ -4,6 +4,7 @@ import 'package:college_hop/screen/public_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:college_hop/providers/auth_provider.dart';
+import 'package:college_hop/services/api_service.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 
 class VerifyOtpScreen extends StatefulWidget {
@@ -171,9 +172,32 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                         ),
                       )
                     : TextButton(
-                        onPressed: () {
+                        onPressed: () async {
                           startTimer();
-                          // Call resend OTP API here
+                          try {
+                            final res = await ApiService.login(widget.email);
+                            if (mounted) {
+                              if (res.statusCode == 200) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("A new verification code has been sent")),
+                                );
+                              } else if (res.statusCode == 429) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("Please wait before requesting another code")),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text("Failed to resend code: ${res.body}")),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Connection failed. Please try again.")),
+                              );
+                            }
+                          }
                         },
                         child: Text(
                           "Resend Code",

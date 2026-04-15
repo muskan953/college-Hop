@@ -30,7 +30,7 @@ func TestListEvents_ReturnsApproved(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		mockEventsRepo, &MockGroupsRepository{},
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("GET", "/events", nil)
@@ -63,7 +63,7 @@ func TestListEvents_EmptyList(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		mockEventsRepo, &MockGroupsRepository{},
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("GET", "/events", nil)
@@ -87,7 +87,7 @@ func TestCreateEvent_RequiresAuth(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, &MockGroupsRepository{},
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	payload := map[string]string{
@@ -120,7 +120,7 @@ func TestCreateEvent_Success(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		mockEventsRepo, &MockGroupsRepository{},
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	payload := map[string]string{
@@ -155,7 +155,7 @@ func TestCreateEvent_ValidationFails(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepositoryFull{}, &MockGroupsRepository{},
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	// Missing required fields
@@ -180,7 +180,7 @@ func TestSetUserEvent_RequiresAuth(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, &MockGroupsRepository{},
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	payload := map[string]string{"event_id": "evt-1"}
@@ -250,3 +250,7 @@ func (m *MockEventsRepositoryFull) GetUserEvent(ctx context.Context, userID stri
 func (m *MockEventsRepositoryFull) GetUserEvents(ctx context.Context, userID string) ([]events.UserEventDetails, error) {
 	return []events.UserEventDetails{}, nil
 }
+
+
+
+

@@ -89,3 +89,5 @@ func TestTransactionRollbackOnInterestFailure(t *testing.T) {
 
 	t.Log("Transaction rollback verified: profile was not modified after failed upsert")
 }
+
+

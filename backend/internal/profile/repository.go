@@ -15,6 +15,9 @@ type Repository interface {
 	CreateConnection(ctx context.Context, userID1, userID2 string) error
 	GetConnections(ctx context.Context, userID string) ([]ConnectionResponse, error)
 	SaveAlternateEmail(ctx context.Context, userID, email string) error
+	BlockUser(ctx context.Context, blockerID, blockedID string) error
+	UnblockUser(ctx context.Context, blockerID, blockedID string) error
+	GetBlockedUsers(ctx context.Context, userID string) ([]BlockedUserResponse, error)
 }
 
 type PostgresRepository struct {
@@ -434,4 +437,54 @@ func (r *PostgresRepository) SaveAlternateEmail(ctx context.Context, userID, ema
 		WHERE user_id = $2
 	`, email, userID)
 	return err
+}
+
+func (r *PostgresRepository) BlockUser(ctx context.Context, blockerID, blockedID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO connections (user_id_1, user_id_2, status, created_at)
+		VALUES ($1, $2, 'blocked', NOW())
+		ON CONFLICT (user_id_1, user_id_2)
+		DO UPDATE SET status = 'blocked'
+	`, blockerID, blockedID)
+	return err
+}
+
+func (r *PostgresRepository) UnblockUser(ctx context.Context, blockerID, blockedID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM connections
+		WHERE user_id_1 = $1 AND user_id_2 = $2 AND status = 'blocked'
+	`, blockerID, blockedID)
+	return err
+}
+
+func (r *PostgresRepository) GetBlockedUsers(ctx context.Context, userID string) ([]BlockedUserResponse, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT
+			u.id,
+			u.email,
+			COALESCE(p.full_name, ''),
+			COALESCE(p.profile_photo_url, '')
+		FROM connections c
+		JOIN users u ON u.id = c.user_id_2
+		LEFT JOIN profiles p ON p.user_id = u.id
+		WHERE c.user_id_1 = $1 AND c.status = 'blocked'
+		ORDER BY c.created_at DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var blocked []BlockedUserResponse
+	for rows.Next() {
+		var b BlockedUserResponse
+		if err := rows.Scan(&b.UserID, &b.Email, &b.FullName, &b.ProfilePhotoURL); err != nil {
+			return nil, err
+		}
+		blocked = append(blocked, b)
+	}
+	if blocked == nil {
+		blocked = []BlockedUserResponse{}
+	}
+	return blocked, nil
 }

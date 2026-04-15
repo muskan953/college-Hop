@@ -378,3 +378,93 @@ func (h *Handler) GetConnections(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(conns)
 }
 
+// BlockUser handles POST /users/{id}/block — blocks another user.
+func (h *Handler) BlockUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Extract target user ID: /users/{id}/block
+	path := strings.TrimPrefix(r.URL.Path, "/users/")
+	path = strings.TrimSuffix(path, "/block")
+	targetID := strings.Trim(path, "/")
+	if targetID == "" {
+		http.Error(w, "missing user id", http.StatusBadRequest)
+		return
+	}
+
+	if targetID == user.ID {
+		http.Error(w, "cannot block yourself", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.repo.BlockUser(r.Context(), user.ID, targetID); err != nil {
+		http.Error(w, "failed to block user", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "user blocked"})
+}
+
+// UnblockUser handles POST /users/{id}/unblock — unblocks a previously blocked user.
+func (h *Handler) UnblockUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Extract target user ID: /users/{id}/unblock
+	path := strings.TrimPrefix(r.URL.Path, "/users/")
+	path = strings.TrimSuffix(path, "/unblock")
+	targetID := strings.Trim(path, "/")
+	if targetID == "" {
+		http.Error(w, "missing user id", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.repo.UnblockUser(r.Context(), user.ID, targetID); err != nil {
+		http.Error(w, "failed to unblock user", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "user unblocked"})
+}
+
+// GetBlockedUsers handles GET /me/blocked — returns all users blocked by the authenticated user.
+func (h *Handler) GetBlockedUsers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	blocked, err := h.repo.GetBlockedUsers(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, "failed to get blocked users", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(blocked)
+}
+

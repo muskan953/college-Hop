@@ -1,4 +1,5 @@
 import 'package:college_hop/screen/account_info.dart';
+import 'package:college_hop/screen/blocked_users_screen.dart';
 import 'package:college_hop/screen/splash_screen.dart';
 import 'package:college_hop/screen/verify_student_id.dart';
 import 'package:flutter/material.dart';
@@ -141,6 +142,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                    context,
                    MaterialPageRoute(
                      builder: (context) => const VerifyStudentIDScreen(),
+                  ),
+                );
+              },
+            ),
+
+            _settingsTile(
+              theme,
+              icon: Icons.block,
+              title: "Blocked Users",
+              subtitle: "Manage blocked people",
+              onTap: () {
+                Navigator.push(
+                   context,
+                   MaterialPageRoute(
+                     builder: (context) => const BlockedUsersScreen(),
                   ),
                 );
               },

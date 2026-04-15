@@ -32,7 +32,7 @@ func TestCreateGroup_Success(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	payload := map[string]interface{}{
@@ -61,7 +61,7 @@ func TestCreateGroup_RequiresAuth(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, &MockGroupsRepository{},
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	payload := map[string]interface{}{
@@ -86,7 +86,7 @@ func TestCreateGroup_ValidationFails(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	// Missing event_id and name
@@ -120,7 +120,7 @@ func TestJoinGroup_GroupFull(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("POST", "/groups/grp-1/join", nil)
@@ -141,7 +141,7 @@ func TestSuggestedGroups_RequiresAuth(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, &MockGroupsRepository{},
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("GET", "/groups/suggested?event_id=evt-1", nil)
@@ -165,7 +165,7 @@ func TestSuggestedGroups_RequiresEventID(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("GET", "/groups/suggested", nil) // missing event_id
@@ -186,7 +186,7 @@ func TestFindMatches_RequiresAuth(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, &MockGroupsRepository{},
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("GET", "/users/matches?event_id=evt-1", nil)
@@ -217,7 +217,7 @@ func TestFindMatches_ReturnsScoredResults(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("GET", "/users/matches?event_id=evt-1", nil)
@@ -275,7 +275,7 @@ func TestGetGroup_Success(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("GET", "/groups/grp-1", nil)
@@ -307,7 +307,7 @@ func TestGetGroup_RequiresAuth(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, &MockGroupsRepository{},
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("GET", "/groups/grp-1", nil)
@@ -337,7 +337,7 @@ func TestUpdateGroup_Success(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	payload := map[string]string{"name": "New Name", "description": "Updated description"}
@@ -367,7 +367,7 @@ func TestUpdateGroup_ForbiddenForNonCreator(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	payload := map[string]string{"name": "Hacked Name"}
@@ -399,7 +399,7 @@ func TestUpdateGroup_MissingName(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	payload := map[string]string{"description": "Only description, no name"}
@@ -435,7 +435,7 @@ func TestDeleteGroup_Success(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("DELETE", "/groups/grp-1", nil)
@@ -462,7 +462,7 @@ func TestDeleteGroup_ForbiddenForNonCreator(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("DELETE", "/groups/grp-1", nil)
@@ -500,7 +500,7 @@ func TestLeaveGroup_Success(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("POST", "/groups/grp-1/leave", nil)
@@ -528,7 +528,7 @@ func TestLeaveGroup_CreatorCannotLeave(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("POST", "/groups/grp-1/leave", nil)
@@ -558,7 +558,7 @@ func TestLeaveGroup_NotAMember(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("POST", "/groups/grp-1/leave", nil)
@@ -596,7 +596,7 @@ func TestKickMember_Success(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	payload := map[string]string{"user_id": targetID}
@@ -625,7 +625,7 @@ func TestKickMember_ForbiddenForNonCreator(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	payload := map[string]string{"user_id": "someone"}
@@ -655,7 +655,7 @@ func TestKickMember_CannotKickSelf(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	// Try to kick yourself
@@ -689,7 +689,7 @@ func TestKickMember_TargetNotInGroup(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	payload := map[string]string{"user_id": "ghost-user"}
@@ -852,7 +852,7 @@ func TestGetMyGroups_ReturnsGroups(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("GET", "/me/groups", nil)
@@ -890,7 +890,7 @@ func TestGetMyGroups_ReturnsEmptyWhenNone(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, mockGroupsRepo,
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("GET", "/me/groups", nil)
@@ -919,7 +919,7 @@ func TestGetMyGroups_RequiresAuth(t *testing.T) {
 	router := server.NewRouter(
 		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, &MockGroupsRepository{},
-		&MockFileStorage{}, "./uploads",
+		nil, nil, &MockFileStorage{}, "./uploads",
 	)
 
 	req, _ := http.NewRequest("GET", "/me/groups", nil)
@@ -930,3 +930,7 @@ func TestGetMyGroups_RequiresAuth(t *testing.T) {
 		t.Errorf("GET /me/groups without auth: got %d, want 401", rr.Code)
 	}
 }
+
+
+
+

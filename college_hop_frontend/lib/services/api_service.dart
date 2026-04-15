@@ -383,5 +383,35 @@ class ApiService {
       },
     );
   }
+
+  /// POST /users/{id}/block — block a user
+  static Future<http.Response> blockUser(String token, String userId) async {
+    final url = Uri.parse("$baseUrl/users/$userId/block");
+    return await http.post(url, headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    });
+  }
+
+  /// POST /users/{id}/unblock — unblock a user
+  static Future<http.Response> unblockUser(String token, String userId) async {
+    final url = Uri.parse("$baseUrl/users/$userId/unblock");
+    return await http.post(url, headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    });
+  }
+
+  /// GET /me/blocked — fetch all blocked users
+  static Future<http.Response> getBlockedUsers(String token) async {
+    final url = Uri.parse("$baseUrl/me/blocked");
+    return await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+  }
 }
 

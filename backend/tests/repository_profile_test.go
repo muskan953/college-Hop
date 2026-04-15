@@ -58,3 +58,5 @@ func TestProfileRepository_UpsertAndGet(t *testing.T) {
 		t.Errorf("Expected 2 interests, got %d", len(p.Interests))
 	}
 }
+
+
