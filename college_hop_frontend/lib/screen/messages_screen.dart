@@ -1283,7 +1283,12 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
                                     Navigator.pop(ctx);
                                     final msgProvider = context.read<MessageProvider>();
                                     // Get or create thread
-                                    final threadId = await msgProvider.getOrCreateDirectThread(targetUserId);
+                                    final (threadId, isBlocked) = await msgProvider.getOrCreateDirectThread(targetUserId);
+                                    if (!context.mounted) return;
+                                    if (isBlocked) {
+                                      _showBlockedOverlay(context);
+                                      return;
+                                    }
                                     if (threadId != null) {
                                       await msgProvider.sendMessage(threadId, forwardText, isForwarded: true);
                                       if (threadId == widget.thread.id) {
@@ -1317,6 +1322,83 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
         );
       },
     );
+  }
+
+  /// Shows a centered overlay for 5 seconds informing that the user is blocked.
+  static void _showBlockedOverlay(BuildContext context) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+      transitionBuilder: (ctx, anim, _, __) {
+        return FadeTransition(
+          opacity: anim,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.85, end: 1.0).animate(
+              CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+            ),
+            child: Center(
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: 260,
+                  padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: Theme.of(ctx).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.22),
+                        blurRadius: 32,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.block_rounded, color: Colors.red, size: 34),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'User Blocked',
+                        style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'You have blocked this user. Unblock them from Settings → Blocked Users to chat.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.65),
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    // Auto-dismiss after 5 seconds
+    Future.delayed(const Duration(seconds: 5), () {
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    });
   }
 
   void _showProfileSheet() {

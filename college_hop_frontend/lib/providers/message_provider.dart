@@ -140,18 +140,23 @@ class MessageProvider with ChangeNotifier {
   }
 
   /// Get or create a direct thread with a user.
-  Future<String?> getOrCreateDirectThread(String otherUserId) async {
-    if (_currentToken == null) return null;
+  /// Returns (threadId, isBlocked). threadId is null on failure.
+  /// isBlocked is true when the server returns 403 (user is blocked).
+  Future<(String?, bool)> getOrCreateDirectThread(String otherUserId) async {
+    if (_currentToken == null) return (null, false);
     try {
       final res = await ApiService.createDirectThread(_currentToken!, otherUserId);
       if (res.statusCode == 201) {
         final data = jsonDecode(res.body);
-        return data['id'] as String;
+        return (data['id'] as String, false);
+      }
+      if (res.statusCode == 403) {
+        return (null, true); // blocked
       }
     } catch (e) {
       debugPrint('[MsgProvider] Failed to create thread: $e');
     }
-    return null;
+    return (null, false);
   }
 
   /// Clear chat for the current user.
