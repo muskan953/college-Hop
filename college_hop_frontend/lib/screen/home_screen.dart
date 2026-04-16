@@ -135,6 +135,9 @@ class _DefaultMainScreenState extends State<DefaultMainScreen> {
 
   Widget _buildHeader(ThemeData theme) {
     final profileData = context.watch<ProfileProvider>().profileData;
+    final String? photoUrl = profileData != null
+        ? profileData['profile_photo_url'] as String?
+        : null;
     final initial = (profileData != null && profileData['name'] != null &&
             (profileData['name'] as String).isNotEmpty)
         ? (profileData['name'] as String)[0].toUpperCase()
@@ -148,14 +151,19 @@ class _DefaultMainScreenState extends State<DefaultMainScreen> {
           CircleAvatar(
             radius: 20,
             backgroundColor: theme.colorScheme.primary,
-            child: Text(
-              initial,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
+            backgroundImage: (photoUrl != null && photoUrl.isNotEmpty)
+                ? NetworkImage(photoUrl)
+                : null,
+            child: (photoUrl == null || photoUrl.isEmpty)
+                ? Text(
+                    initial,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  )
+                : null,
           ),
           Text(
             "Find Travel Buddies",
