@@ -861,6 +861,11 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
   final FocusNode _searchFocusNode = FocusNode();
   int _currentMatchIndex = 0; // which match is focused
 
+  // ── Typing indicator state ────────────────────────────────────────────
+  bool _otherIsTyping = false;
+  Timer? _typingHideTimer;
+  DateTime? _lastTypingSent;
+
   List<int> get _matchIndices {
     if (_searchQuery.isEmpty) return [];
     final q = _searchQuery.toLowerCase();
@@ -952,6 +957,15 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
             _isOnline = payload['is_online'] == true;
           });
         }
+      } else if (type == 'user_typing') {
+        final payload = data['payload'] as Map<String, dynamic>;
+        if (payload['thread_id'] == widget.thread.id && mounted) {
+          setState(() => _otherIsTyping = true);
+          _typingHideTimer?.cancel();
+          _typingHideTimer = Timer(const Duration(seconds: 3), () {
+            if (mounted) setState(() => _otherIsTyping = false);
+          });
+        }
       }
     });
   }
@@ -964,6 +978,7 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
   void dispose() {
     _wsSub?.cancel();
     _pollTimer?.cancel();
+    _typingHideTimer?.cancel();
     _msgCtrl.dispose();
     _scrollCtrl.dispose();
     _chatSearchCtrl.dispose();
@@ -1876,6 +1891,43 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
                 ],
               ),
             ),
+          // ── Typing indicator bubble ───────────────────────────────────────
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _otherIsTyping
+                ? Padding(
+                    key: const ValueKey('typing'),
+                    padding: const EdgeInsets.only(left: 16, right: 16, bottom: 4),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 14,
+                          backgroundColor: widget.thread.avatarColor.withValues(alpha: 0.15),
+                          child: Text(
+                            widget.thread.avatarLabel,
+                            style: TextStyle(color: widget.thread.avatarColor, fontWeight: FontWeight.bold, fontSize: 11),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(18),
+                              topRight: Radius.circular(18),
+                              bottomLeft: Radius.circular(4),
+                              bottomRight: Radius.circular(18),
+                            ),
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))],
+                          ),
+                          child: _TypingDots(),
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(key: ValueKey('no-typing')),
+          ),
           Container(
             color: theme.colorScheme.surface,
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
@@ -1898,6 +1950,16 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
                       focusNode: FocusNode()..addListener(() {
                         if (mounted) setState(() => _showEmojiPicker = false);
                       }),
+                      onChanged: (_) {
+                        // Throttle typing events to once per 2 seconds
+                        final now = DateTime.now();
+                        if (_lastTypingSent == null ||
+                            now.difference(_lastTypingSent!) > const Duration(seconds: 2)) {
+                          _lastTypingSent = now;
+                          final msgProv = context.read<MessageProvider>();
+                          msgProv.sendTyping(widget.thread.id);
+                        }
+                      },
                       textCapitalization: TextCapitalization.sentences,
                       decoration: InputDecoration(
                         hintText: 'Type a message...',
@@ -2169,4 +2231,59 @@ class _BubbleWidget extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  TYPING DOTS
+// ─────────────────────────────────────────────────────────────────────────────
+class _TypingDots extends StatefulWidget {
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<_TypingDots> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Widget _dot(double delay) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) {
+        final t = ((_ctrl.value - delay) % 1.0).clamp(0.0, 1.0);
+        final opacity = (t < 0.5 ? t * 2 : (1.0 - t) * 2).clamp(0.3, 1.0);
+        return Opacity(
+          opacity: opacity,
+          child: Container(
+            width: 7,
+            height: 7,
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade500,
+              shape: BoxShape.circle,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        _dot(0.0),
+        _dot(0.3),
+        _dot(0.6),
+      ]);
 }
