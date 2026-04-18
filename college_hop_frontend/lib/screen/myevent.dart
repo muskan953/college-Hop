@@ -235,8 +235,12 @@ class _MyEventState extends State<MyEvent> {
       else
         SliverList(
           delegate: SliverChildBuilderDelegate(
-            (context, index) =>
-                _buildMatchCard(theme, _bestMatches[index]),
+            (context, index) {
+              final active = context.read<EventProvider>().activeEvent;
+              final evName = active?.name ?? '';
+              final evDate = active != null ? DateFormat('MMM d').format(active.startDate) : '';
+              return _buildMatchCard(theme, _bestMatches[index], evName, evDate);
+            },
             childCount: _bestMatches.length,
           ),
         ),
@@ -663,7 +667,7 @@ class _MyEventState extends State<MyEvent> {
     );
   }
 
-  Widget _buildMatchCard(ThemeData theme, Map<String, dynamic> match) {
+  Widget _buildMatchCard(ThemeData theme, Map<String, dynamic> match, String eventName, String eventDate) {
     final name = match['full_name'] ?? 'Unknown';
     final college = match['college_name'] ?? '';
     final commonInterests =
@@ -684,7 +688,11 @@ class _MyEventState extends State<MyEvent> {
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => const ConnectProfileScreen(),
+          builder: (context) => ConnectProfileScreen(matchData: {
+                ...match,
+                'event_name': eventName,
+                'event_date': eventDate,
+              }),
             ),
           );
         },
@@ -829,7 +837,11 @@ class _MyEventState extends State<MyEvent> {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) =>
-                          const ConnectProfileScreen(),
+                            ConnectProfileScreen(matchData: {
+                              ...match,
+                              'event_name': eventName,
+                              'event_date': eventDate,
+                            }),
                     ),
                   );
                 },

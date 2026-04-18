@@ -156,6 +156,10 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 	msg, err := h.repo.CreateMessage(r.Context(), req.ThreadID, user.ID, req.Content, req.ReplyToID, req.IsForwarded)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "request message limit reached (10 messages)", http.StatusTooManyRequests)
+			return
+		}
 		http.Error(w, "failed to send message", http.StatusInternalServerError)
 		return
 	}
@@ -195,7 +199,7 @@ func (h *Handler) GetOrCreateDirectThread(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	thread, err := h.repo.GetOrCreateDirectThread(r.Context(), user.ID, req.UserID)
+	thread, err := h.repo.GetOrCreateDirectThread(r.Context(), user.ID, req.UserID, false)
 	if err != nil {
 		http.Error(w, "failed to create thread", http.StatusInternalServerError)
 		return
@@ -339,3 +343,72 @@ func (h *Handler) RegisterDeviceToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "token registered"})
 }
+
+// POST /messages/threads/{id}/accept — Accept a request thread.
+func (h *Handler) AcceptRequest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 4 {
+		http.Error(w, "invalid URL", http.StatusBadRequest)
+		return
+	}
+	threadID := parts[2]
+
+	ok, err := h.repo.IsParticipant(r.Context(), threadID, user.ID)
+	if err != nil || !ok {
+		http.Error(w, "not a participant", http.StatusForbidden)
+		return
+	}
+
+	if err := h.repo.AcceptRequest(r.Context(), threadID, user.ID); err != nil {
+		http.Error(w, "failed to accept request", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// POST /messages/threads/{id}/decline — Decline a request thread.
+func (h *Handler) DeclineRequest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 4 {
+		http.Error(w, "invalid URL", http.StatusBadRequest)
+		return
+	}
+	threadID := parts[2]
+
+	ok, err := h.repo.IsParticipant(r.Context(), threadID, user.ID)
+	if err != nil || !ok {
+		http.Error(w, "not a participant", http.StatusForbidden)
+		return
+	}
+
+	if err := h.repo.DeclineRequest(r.Context(), threadID, user.ID); err != nil {
+		http.Error(w, "failed to decline request", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+

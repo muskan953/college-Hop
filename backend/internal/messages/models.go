@@ -4,10 +4,12 @@ import "time"
 
 // Thread represents a conversation container (direct or group).
 type Thread struct {
-	ID        string    `json:"id"`
-	Type      string    `json:"type"`     // "direct" or "group"
-	GroupID   *string   `json:"group_id"` // nil for direct
-	CreatedAt time.Time `json:"created_at"`
+	ID                  string    `json:"id"`
+	Type                string    `json:"type"`     // "direct" or "group"
+	GroupID             *string   `json:"group_id"` // nil for direct
+	CreatedAt           time.Time `json:"created_at"`
+	IsRequest           bool      `json:"is_request"`
+	RequestMessageCount int       `json:"request_message_count"`
 }
 
 // ThreadSummary is returned by ListUserThreads for the thread list screen.
@@ -18,11 +20,14 @@ type ThreadSummary struct {
 	LastMessage     string    `json:"last_message"`
 	LastMessageTime time.Time `json:"last_message_at"`
 	AvatarURL       *string   `json:"avatar_url"`
-	Participants    []string  `json:"participant_ids"`
-	OtherUserID     *string   `json:"other_user_id"`
-	OtherUserName   string    `json:"other_user_name"`
-	UnreadCount     int       `json:"unread_count"`
-	IsOnline        bool      `json:"is_online"`
+	Participants        []string  `json:"participant_ids"`
+	OtherUserID         *string   `json:"other_user_id"`
+	OtherUserName       string    `json:"other_user_name"`
+	UnreadCount         int       `json:"unread_count"`
+	IsOnline            bool      `json:"is_online"`
+	IsRequest           bool      `json:"is_request"`
+	RequestMessageCount int       `json:"request_message_count"`
+	IsRequester         bool      `json:"is_requester"`
 }
 
 // Message represents a single chat message.

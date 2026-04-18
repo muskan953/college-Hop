@@ -2,6 +2,7 @@ package messages
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"log"
 	"sync"
@@ -156,6 +157,10 @@ func (h *Hub) handleMessage(ctx context.Context, bMsg *broadcastMsg) {
 	// Persist the message
 	msg, err := h.repo.CreateMessage(ctx, threadID, senderID, content, bMsg.incoming.ReplyToID, bMsg.incoming.IsForwarded)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			h.sendError(senderID, "request message limit reached (10 messages)")
+			return
+		}
 		log.Printf("[Hub] Failed to persist message: %v", err)
 		h.sendError(senderID, "failed to send message")
 		return

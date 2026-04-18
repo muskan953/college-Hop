@@ -1,9 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:college_hop/services/api_service.dart';
+import 'package:provider/provider.dart';
+import 'package:college_hop/providers/auth_provider.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 import 'package:college_hop/screen/connection_success_screen.dart';
 
 class ConnectProfileScreen extends StatefulWidget {
-  const ConnectProfileScreen({super.key});
+  final Map<String, dynamic> matchData;
+  const ConnectProfileScreen({super.key, required this.matchData});
 
   @override
   State<ConnectProfileScreen> createState() => _ConnectProfileScreenState();
@@ -12,6 +17,63 @@ class ConnectProfileScreen extends StatefulWidget {
 class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
   final TextEditingController _messageController = TextEditingController();
   String? _sentMessage;
+  bool _isConnecting = false;
+  bool _hasConnected = false;
+  
+  Map<String, dynamic>? _fullProfile;
+  bool _isLoadingProfile = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    final token = context.read<AuthProvider>().accessToken;
+    final userId = widget.matchData['user_id'];
+    if (token == null || userId == null) {
+      if (mounted) setState(() => _isLoadingProfile = false);
+      return;
+    }
+    try {
+      final results = await Future.wait([
+        ApiService.getPublicProfile(token, userId),
+        ApiService.getThreads(token),
+      ]);
+      final profileRes = results[0];
+      final threadsRes = results[1];
+      
+      Map<String, dynamic>? fetchedProfile;
+      if (profileRes.statusCode == 200) {
+        fetchedProfile = jsonDecode(profileRes.body);
+      }
+      
+      bool hasConnected = _hasConnected;
+      String? sentMsg = _sentMessage;
+      if (threadsRes.statusCode == 200) {
+        final List<dynamic> threads = jsonDecode(threadsRes.body);
+        for (var t in threads) {
+          if (t['other_user_id'] == userId && t['is_request'] == true && t['is_requester'] == true) {
+            hasConnected = true;
+            sentMsg = t['last_message'];
+            break;
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          if (fetchedProfile != null) _fullProfile = fetchedProfile;
+          _hasConnected = hasConnected;
+          if (sentMsg != null) _sentMessage = sentMsg;
+          _isLoadingProfile = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingProfile = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -24,6 +86,18 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+
+    final match = widget.matchData;
+    final String fullName = match['full_name'] ?? 'Unknown User';
+    final String firstName = fullName.split(' ').first;
+    final String college = match['college_name'] ?? '';
+    final String profilePhotoUrl = match['profile_photo_url'] ?? '';
+    final List<String> sharedInterests = (match['common_interests'] as List<dynamic>?)?.cast<String>() ?? [];
+    final double matchScore = match['match_score'] ?? 0.0;
+    final int matchPercent = (matchScore * 100).round();
+    
+    final hue = (fullName.hashCode % 360).abs().toDouble();
+    final avatarColor = HSLColor.fromAHSL(1.0, hue, 0.6, 0.5).toColor();
 
     return AppScaffold(
       appBar: AppBar(
@@ -48,11 +122,14 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
               children: [
                 CircleAvatar(
                   radius: 48,
-                  backgroundColor: colorScheme.primary,
-                  child: const Text(
-                    "P", 
-                    style: TextStyle(fontSize: 36, color: Colors.white, fontWeight: FontWeight.bold)
-                  ),
+                  backgroundColor: avatarColor.withValues(alpha: 0.15),
+                  backgroundImage: profilePhotoUrl.isNotEmpty ? NetworkImage(profilePhotoUrl) : null,
+                  child: profilePhotoUrl.isEmpty
+                      ? Text(
+                          fullName.isNotEmpty ? fullName[0].toUpperCase() : '?', 
+                          style: TextStyle(fontSize: 36, color: avatarColor, fontWeight: FontWeight.bold)
+                        )
+                      : null,
                 ),
                 Positioned(
                   bottom: -10,
@@ -64,7 +141,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                       border: Border.all(color: theme.scaffoldBackgroundColor, width: 2),
                     ),
                     child: Text(
-                      "Great Match", 
+                      "$matchPercent% Match", 
                       style: TextStyle(
                         fontSize: 10, 
                         fontWeight: FontWeight.bold, 
@@ -78,9 +155,11 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
             const SizedBox(height: 24),
             
             // Name and Uni
-            const Text("Priya Sharma", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text("MIT", style: TextStyle(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.6))),
+            Text(fullName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            if (college.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(college, style: TextStyle(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.6))),
+            ],
             
             const SizedBox(height: 24),
 
@@ -88,14 +167,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildStatItem(Icons.favorite, Colors.red.shade400, "2 shared\ninterests", textTheme),
-                Container(
-                  height: 30,
-                  width: 1,
-                  color: textTheme.bodyMedium?.color?.withValues(alpha: 0.1),
-                  margin: const EdgeInsets.symmetric(horizontal: 24),
-                ),
-                _buildStatItem(Icons.people, colorScheme.primary, "5 mutual\nconnections", textTheme),
+                _buildStatItem(Icons.favorite, Colors.red.shade400, "${sharedInterests.length} shared\ninterests", textTheme),
               ],
             ),
             
@@ -118,84 +190,133 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // About Section
-                  _buildSectionTitle("About"),
-                  const SizedBox(height: 12),
-                  Text(
-                    "Passionate about AI/ML, and building products that make a difference. Always down for hackathons and tech meetups. Love exploring new cities and meeting fellow tech enthusiasts!",
-                    style: TextStyle(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.7), height: 1.5),
-                  ),
-                  
-                  const SizedBox(height: 24),
-
-                  // Education & Info Section
-                  _buildSectionTitle("Education & Info"),
-                  const SizedBox(height: 16),
-                  _buildInfoTile(Icons.school_outlined, "Computer Science", "3rd Year", colorScheme.primary, textTheme),
-                  _buildInfoTile(Icons.location_on_outlined, "Cambridge, MA", "Current Location", Colors.orangeAccent, textTheme),
-
-                  const SizedBox(height: 24),
-
-                  // Interests Section
-                  _buildSectionTitle("Shared Interests"),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _buildChip("# AI", colorScheme.secondary, true),
-                      _buildChip("# Startups", colorScheme.secondary, true),
+                  if (_isLoadingProfile)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else ...[
+                    // About Section
+                    if (_fullProfile?['bio'] != null && _fullProfile!['bio'].toString().isNotEmpty) ...[
+                      _buildSectionTitle("About"),
+                      const SizedBox(height: 12),
+                      Text(
+                        _fullProfile!['bio'],
+                        style: TextStyle(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.7), height: 1.5),
+                      ),
+                      const SizedBox(height: 24),
                     ],
-                  ),
-                  
-                  const SizedBox(height: 20),
-                  Text("OTHER INTERESTS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _buildChip("Hackathons", textTheme.bodyMedium?.color?.withValues(alpha: 0.6) ?? Colors.grey, false),
-                      _buildChip("Photography", textTheme.bodyMedium?.color?.withValues(alpha: 0.6) ?? Colors.grey, false),
-                      _buildChip("Travel", textTheme.bodyMedium?.color?.withValues(alpha: 0.6) ?? Colors.grey, false),
-                      _buildChip("Coffee", textTheme.bodyMedium?.color?.withValues(alpha: 0.6) ?? Colors.grey, false),
+
+                    // Education & Info Section
+                    if (_fullProfile?['major'] != null && _fullProfile!['major'].toString().isNotEmpty) ...[
+                      _buildSectionTitle("Education & Info"),
+                      const SizedBox(height: 16),
+                      _buildInfoTile(Icons.school_outlined, _fullProfile!['major'], college.isNotEmpty ? college : "University", colorScheme.primary, textTheme),
+                      if (_fullProfile?['is_alumni'] == true)
+                        _buildInfoTile(Icons.workspace_premium, "Alumni", "Graduated", Colors.orangeAccent, textTheme),
+                      const SizedBox(height: 24),
                     ],
-                  ),
 
-                  const SizedBox(height: 24),
-
-                  // Attending Events Section
-                  _buildSectionTitle("Attending Events"),
-                  const SizedBox(height: 12),
-                  _buildEventCard("TechCrunch Disrupt", "March 20", true, colorScheme, textTheme),
-                  _buildEventCard("TechCrunch Disrupt", null, false, colorScheme, textTheme),
-                  _buildEventCard("AWS Summit", null, false, colorScheme, textTheme),
+                    // Interests Section
+                    if (sharedInterests.isNotEmpty) ...[
+                      _buildSectionTitle("Shared Interests"),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: sharedInterests.map((interest) => _buildChip(interest, colorScheme.secondary, true)).toList(),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                    
+                    if (_fullProfile?['interests'] != null) ...[
+                      Builder(
+                        builder: (ctx) {
+                          final List<String> allInterests = (_fullProfile!['interests'] as List<dynamic>).cast<String>();
+                          final otherInterests = allInterests.where((i) => !sharedInterests.contains(i)).toList();
+                          if (otherInterests.isNotEmpty) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("OTHER INTERESTS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: otherInterests.map((interest) {
+                                    return _buildChip(interest, textTheme.bodyMedium?.color?.withValues(alpha: 0.6) ?? Colors.grey, false);
+                                  }).toList(),
+                                ),
+                                const SizedBox(height: 24),
+                              ],
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        }
+                      ),
+                    ],
+                  ],
                 ],
               ),
             ),
-            
-            if (_sentMessage != null && _sentMessage!.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              _buildSectionTitle("Sent Message"),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withValues(alpha: 0.05),
-                  border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
-                  borderRadius: BorderRadius.circular(16),
+
+            // Attending Events Section
+            Builder(builder: (ctx) {
+              final eventName = match['event_name'] as String?;
+              final eventDate = match['event_date'] as String?;
+              if (eventName == null || eventName.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionTitle("Attending Events"),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: textTheme.bodyMedium?.color?.withValues(alpha: 0.08) ?? Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(Icons.calendar_month_outlined, color: colorScheme.primary, size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(eventName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                if (eventDate != null && eventDate.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text("— $eventDate", style: TextStyle(fontSize: 12, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
+                                ],
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade100,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text("Same Event", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green.shade700)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                child: Text(
-                  _sentMessage!,
-                  style: TextStyle(
-                    color: textTheme.bodyMedium?.color?.withValues(alpha: 0.9),
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                ),
-              ),
-            ],
+              );
+            }),
 
           ],
         ),
@@ -218,26 +339,19 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () async {
-                    final bool? result = await Navigator.push<bool>(
-                      context,
-                      PageRouteBuilder<bool>(
-                        pageBuilder: (context, animation, secondaryAnimation) => const ConnectionSuccessScreen(),
-                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                          return FadeTransition(opacity: animation, child: child);
-                        },
-                      ),
-                    );
+                  onPressed: (_isConnecting || _hasConnected) ? null : () async {
+                    setState(() => _isConnecting = true);
 
-                    if (result == true) {
-                      if (!context.mounted) return;
-                      _showSendMessageBottomSheet(context, theme, textTheme, colorScheme);
-                    }
+                    // Skip the success screen animation? The user loved the success screen earlier, so we pop it and THEN logic?
+                    // Actually, the success screen was completely fake! 
+                    // Let's just launch the modal directly.
+                    setState(() => _isConnecting = false);
+                    _showSendMessageBottomSheet(context, theme, textTheme, colorScheme, fullName, firstName, match['user_id']);
                   },
-                  icon: const Icon(Icons.person_add_alt_1, color: Colors.white, size: 20),
-                  label: const Text("Connect", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  icon: Icon(_hasConnected ? Icons.check_circle : Icons.person_add_alt_1, color: Colors.white, size: 20),
+                  label: Text(_hasConnected ? "Request Pending" : "Connect", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: colorScheme.primary,
+                    backgroundColor: _hasConnected ? Colors.grey : colorScheme.primary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
@@ -370,8 +484,10 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
     );
   }
 
-  void _showSendMessageBottomSheet(BuildContext context, ThemeData theme, TextTheme textTheme, ColorScheme colorScheme) {
+  void _showSendMessageBottomSheet(BuildContext context, ThemeData theme, TextTheme textTheme, ColorScheme colorScheme, String fullName, String firstName, String userId) {
     _messageController.clear();
+    bool sheetSending = false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -380,34 +496,36 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            top: 24,
-            left: 24,
-            right: 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                top: 24,
+                left: 24,
+                right: 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text("Send a message", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text("Introduce yourself to Priya Sharma", style: TextStyle(fontSize: 14, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.6))),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("Send a message", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text("Introduce yourself to $fullName", style: TextStyle(fontSize: 14, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.6))),
+                        ],
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: Icon(Icons.close, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.6)),
+                      ),
                     ],
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(Icons.close, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.6)),
-                  ),
-                ],
-              ),
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -417,9 +535,9 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              _buildTemplateCard("Hey! Excited to connect for the event. Looking forward to meeting you!", textTheme, colorScheme),
-              _buildTemplateCard("Hi! I noticed we share a lot of interests. Would love to coordinate travel plans!", textTheme, colorScheme),
-              _buildTemplateCard("Hey Priya! Let's connect and figure out travel details together.", textTheme, colorScheme),
+              _buildTemplateCard("Hey $firstName! Excited to connect for the event. Looking forward to meeting you!", textTheme, colorScheme),
+              _buildTemplateCard("Hi $firstName! I noticed we share a lot of interests. Would love to coordinate plans!", textTheme, colorScheme),
+              _buildTemplateCard("Hey $firstName! Let's connect and figure out travel details together.", textTheme, colorScheme),
               const SizedBox(height: 24),
               Text("OR WRITE YOUR OWN", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
               const SizedBox(height: 12),
@@ -447,7 +565,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => Navigator.pop(ctx),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -459,14 +577,49 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _sentMessage = _messageController.text.trim();
-                        });
-                        Navigator.pop(context);
+                      onPressed: sheetSending ? null : () async {
+                        final msg = _messageController.text.trim();
+                        if (msg.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please add a message.')));
+                          return;
+                        }
+                        setSheetState(() => sheetSending = true);
+                        
+                        try {
+                          final token = context.read<AuthProvider>().accessToken;
+                          if (token == null) return;
+                          
+                          final res = await ApiService.connectUser(token, userId, msg);
+                          if (res.statusCode == 201 && mounted) {
+                            setState(() {
+                              _sentMessage = msg;
+                              _hasConnected = true;
+                            });
+                            Navigator.pop(ctx);
+                            
+                            // Optionally show success screen
+                            Navigator.push(
+                              context,
+                              PageRouteBuilder(
+                                pageBuilder: (context, animation, secondaryAnimation) => const ConnectionSuccessScreen(),
+                                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                  return FadeTransition(opacity: animation, child: child);
+                                },
+                              ),
+                            );
+                          } else {
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not request connection'), backgroundColor: Colors.red));
+                            setSheetState(() => sheetSending = false);
+                          }
+                        } catch (e) {
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Network error'), backgroundColor: Colors.red));
+                          setSheetState(() => sheetSending = false);
+                        }
                       },
-                      icon: const Icon(Icons.send, color: Colors.white, size: 16),
-                      label: const Text("Send Message", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                      icon: sheetSending 
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.send, color: Colors.white, size: 16),
+                      label: Text(sheetSending ? "Sending..." : "Send Message", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: colorScheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -483,7 +636,9 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
         );
       },
     );
-  }
+  },
+);
+}
 
   Widget _buildTemplateCard(String text, TextTheme textTheme, ColorScheme colorScheme) {
     return InkWell(

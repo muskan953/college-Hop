@@ -9,7 +9,7 @@ import (
 // Repository defines all data access operations for messaging.
 type Repository interface {
 	// Threads
-	GetOrCreateDirectThread(ctx context.Context, userID1, userID2 string) (Thread, error)
+	GetOrCreateDirectThread(ctx context.Context, userID1, userID2 string, isRequest bool) (Thread, error)
 	CreateGroupThread(ctx context.Context, groupID string, memberIDs []string) (Thread, error)
 	ListUserThreads(ctx context.Context, userID string) ([]ThreadSummary, error)
 
@@ -21,6 +21,8 @@ type Repository interface {
 	// Thread management
 	ClearThread(ctx context.Context, threadID, userID string) error
 	MarkThreadAsRead(ctx context.Context, threadID, userID string) error
+	AcceptRequest(ctx context.Context, threadID, userID string) error
+	DeclineRequest(ctx context.Context, threadID, userID string) error
 
 	// Membership
 	IsParticipant(ctx context.Context, threadID, userID string) (bool, error)
@@ -46,17 +48,17 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 // GetOrCreateDirectThread finds or creates a 1:1 thread between two users.
-func (r *PostgresRepository) GetOrCreateDirectThread(ctx context.Context, userID1, userID2 string) (Thread, error) {
+func (r *PostgresRepository) GetOrCreateDirectThread(ctx context.Context, userID1, userID2 string, isRequest bool) (Thread, error) {
 	// Check if a direct thread already exists between these two users
 	var t Thread
 	err := r.db.QueryRowContext(ctx, `
-		SELECT mt.id, mt.type, mt.group_id, mt.created_at
+		SELECT mt.id, mt.type, mt.group_id, mt.created_at, mt.is_request, mt.request_message_count
 		FROM message_threads mt
 		JOIN thread_participants tp1 ON tp1.thread_id = mt.id AND tp1.user_id = $1
 		JOIN thread_participants tp2 ON tp2.thread_id = mt.id AND tp2.user_id = $2
 		WHERE mt.type = 'direct'
 		LIMIT 1
-	`, userID1, userID2).Scan(&t.ID, &t.Type, &t.GroupID, &t.CreatedAt)
+	`, userID1, userID2).Scan(&t.ID, &t.Type, &t.GroupID, &t.CreatedAt, &t.IsRequest, &t.RequestMessageCount)
 
 	if err == nil {
 		return t, nil // existing thread found
@@ -73,9 +75,9 @@ func (r *PostgresRepository) GetOrCreateDirectThread(ctx context.Context, userID
 	defer tx.Rollback()
 
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO message_threads (type) VALUES ('direct')
-		RETURNING id, type, group_id, created_at
-	`).Scan(&t.ID, &t.Type, &t.GroupID, &t.CreatedAt)
+		INSERT INTO message_threads (type, is_request) VALUES ('direct', $1)
+		RETURNING id, type, group_id, created_at, is_request, request_message_count
+	`, isRequest).Scan(&t.ID, &t.Type, &t.GroupID, &t.CreatedAt, &t.IsRequest, &t.RequestMessageCount)
 	if err != nil {
 		return Thread{}, err
 	}
@@ -143,7 +145,10 @@ func (r *PostgresRepository) ListUserThreads(ctx context.Context, userID string)
 				  AND m2.sender_id != $1
 				  AND m2.created_at > COALESCE(tp.last_read_at, '1970-01-01'::timestamptz)
 				  AND m2.created_at > COALESCE(tp.cleared_at, '1970-01-01'::timestamptz)
-			) AS unread_count
+			) AS unread_count,
+			mt.is_request,
+			mt.request_message_count,
+			COALESCE(c.requester_id = $1, false) AS is_requester
 		FROM thread_participants tp
 		JOIN message_threads mt ON mt.id = tp.thread_id
 		-- For direct chats: get the OTHER participant's name
@@ -154,6 +159,11 @@ func (r *PostgresRepository) ListUserThreads(ctx context.Context, userID string)
 		LEFT JOIN profiles p2 ON p2.user_id = tp_other.user_id
 		-- For group chats: get the group name
 		LEFT JOIN travel_groups tg ON tg.id = mt.group_id
+		-- Find the connection to see who is the requester
+		LEFT JOIN connections c ON (
+			(c.user_id_1 = $1 AND c.user_id_2 = tp_other.user_id) OR 
+			(c.user_id_1 = tp_other.user_id AND c.user_id_2 = $1)
+		) AND c.status = 'pending' AND mt.is_request = true
 		-- Last message (subquery for latest)
 		LEFT JOIN LATERAL (
 			SELECT content, created_at FROM messages
@@ -182,8 +192,9 @@ func (r *PostgresRepository) ListUserThreads(ctx context.Context, userID string)
 		var ts ThreadSummary
 		var avatarURL sql.NullString
 		var otherUserID sql.NullString
+		var isRequester sql.NullBool
 		if err := rows.Scan(&ts.ID, &ts.Type, &ts.Name, &ts.LastMessage,
-			&ts.LastMessageTime, &avatarURL, &otherUserID, &ts.UnreadCount); err != nil {
+			&ts.LastMessageTime, &avatarURL, &otherUserID, &ts.UnreadCount, &ts.IsRequest, &ts.RequestMessageCount, &isRequester); err != nil {
 			return nil, err
 		}
 		if avatarURL.Valid {
@@ -191,6 +202,9 @@ func (r *PostgresRepository) ListUserThreads(ctx context.Context, userID string)
 		}
 		if otherUserID.Valid && otherUserID.String != "" {
 			ts.OtherUserID = &otherUserID.String
+		}
+		if isRequester.Valid {
+			ts.IsRequester = isRequester.Bool
 		}
 		// Mirror Name to OtherUserName so both JSON fields are populated
 		ts.OtherUserName = ts.Name
@@ -237,10 +251,37 @@ func (r *PostgresRepository) GetMessages(ctx context.Context, threadID, userID s
 	return msgs, rows.Err()
 }
 
-// CreateMessage inserts a new message and returns it with the sender name.
 func (r *PostgresRepository) CreateMessage(ctx context.Context, threadID, senderID, content string, replyToID *string, isForwarded bool) (Message, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Message{}, err
+	}
+	defer tx.Rollback()
+
+	// Enforce 10 message limit and update request_message_count incrementally if is_request is true
+	var isRequest bool
+	var reqCount int
+	err = tx.QueryRowContext(ctx, "SELECT is_request, request_message_count FROM message_threads WHERE id = $1", threadID).Scan(&isRequest, &reqCount)
+	if err != nil {
+		return Message{}, err
+	}
+
+	if isRequest {
+		if reqCount >= 10 {
+			return Message{}, sql.ErrNoRows // or a specific error to indicate limit reached
+		}
+		_, err = tx.ExecContext(ctx, `
+			UPDATE message_threads
+			SET request_message_count = request_message_count + 1
+			WHERE id = $1
+		`, threadID)
+		if err != nil {
+			return Message{}, err
+		}
+	}
+
 	var m Message
-	err := r.db.QueryRowContext(ctx, `
+	err = tx.QueryRowContext(ctx, `
 		WITH inserted AS (
 			INSERT INTO messages (thread_id, sender_id, content, reply_to_id, is_forwarded)
 			VALUES ($1, $2, $3, $4, $5)
@@ -255,7 +296,11 @@ func (r *PostgresRepository) CreateMessage(ctx context.Context, threadID, sender
 		LEFT JOIN messages rm ON rm.id = i.reply_to_id
 		LEFT JOIN profiles rp ON rp.user_id = rm.sender_id
 	`, threadID, senderID, content, replyToID, isForwarded).Scan(&m.ID, &m.ThreadID, &m.SenderID, &m.SenderName, &m.Content, &m.CreatedAt, &m.ReplyToID, &m.IsForwarded, &m.ReplyToContent, &m.ReplyToSender)
-	return m, err
+	if err != nil {
+		return Message{}, err
+	}
+
+	return m, tx.Commit()
 }
 
 // DeleteMessage removes a message if it belongs to the requesting user and returns its thread ID.
@@ -283,6 +328,87 @@ func (r *PostgresRepository) ClearThread(ctx context.Context, threadID, userID s
 		WHERE thread_id = $1 AND user_id = $2
 	`, threadID, userID)
 	return err
+}
+
+// AcceptRequest converts a request thread into a direct thread and connects the users.
+func (r *PostgresRepository) AcceptRequest(ctx context.Context, threadID, userID string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Get the other user
+	var otherUserID string
+	err = tx.QueryRowContext(ctx, `
+		SELECT user_id FROM thread_participants
+		WHERE thread_id = $1 AND user_id != $2
+		LIMIT 1
+	`, threadID, userID).Scan(&otherUserID)
+	if err != nil {
+		return err
+	}
+
+	// 2. Mark thread as direct (is_request = false)
+	_, err = tx.ExecContext(ctx, `
+		UPDATE message_threads SET is_request = false WHERE id = $1 AND is_request = true
+	`, threadID)
+	if err != nil {
+		return err
+	}
+
+	// 3. Update the connection from 'pending' to 'connected'
+	_, err = tx.ExecContext(ctx, `
+		UPDATE connections
+		SET status = 'connected'
+		WHERE ((user_id_1 = $1 AND user_id_2 = $2) OR (user_id_1 = $2 AND user_id_2 = $1))
+		  AND status = 'pending'
+	`, userID, otherUserID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// DeclineRequest deletes the request thread and removes the pending connection.
+func (r *PostgresRepository) DeclineRequest(ctx context.Context, threadID, userID string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Get the other user
+	var otherUserID string
+	err = tx.QueryRowContext(ctx, `
+		SELECT user_id FROM thread_participants
+		WHERE thread_id = $1 AND user_id != $2
+		LIMIT 1
+	`, threadID, userID).Scan(&otherUserID)
+	if err != nil {
+		return err
+	}
+
+	// 2. Delete the thread (cascades to messages and participants)
+	_, err = tx.ExecContext(ctx, `
+		DELETE FROM message_threads WHERE id = $1 AND is_request = true
+	`, threadID)
+	if err != nil {
+		return err
+	}
+
+	// 3. Delete the pending connection
+	_, err = tx.ExecContext(ctx, `
+		DELETE FROM connections
+		WHERE ((user_id_1 = $1 AND user_id_2 = $2) OR (user_id_1 = $2 AND user_id_2 = $1))
+		  AND status = 'pending'
+	`, userID, otherUserID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // IsParticipant checks whether a user belongs to a thread.

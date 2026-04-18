@@ -145,14 +145,15 @@ class WebSocketService {
 
   void _scheduleReconnect() {
     if (_disposed || _currentToken == null) return;
-    if (_reconnectAttempts >= 10) {
+    if (_reconnectAttempts >= 8) {
       debugPrint('[WS] Max reconnect attempts reached, giving up');
       return;
     }
 
     _reconnectAttempts++;
+    // Minimum 10s delay prevents rapid reconnect loops (e.g. close 1005 cycles).
     final delay = Duration(
-      seconds: min(60, pow(2, _reconnectAttempts).toInt()),
+      seconds: min(120, max(10, pow(2, _reconnectAttempts).toInt())),
     );
     debugPrint('[WS] Reconnecting in ${delay.inSeconds}s (attempt $_reconnectAttempts)');
 

@@ -35,6 +35,8 @@ class _ChatThread {
 
   final String? otherUserId;
   final bool isOnline;
+  final bool isRequester;
+  final int requestMessageCount;
 
   const _ChatThread({
     required this.id,
@@ -50,6 +52,8 @@ class _ChatThread {
     this.eventTag,
     this.otherUserId,
     this.isOnline = false,
+    this.isRequester = false,
+    this.requestMessageCount = 0,
   });
 }
 
@@ -217,6 +221,38 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
             }
           });
         }
+      } else if (data['type'] == 'new_message') {
+        final msg = data['payload'] as Map<String, dynamic>;
+        if (mounted) {
+          setState(() {
+            final threadId = msg['thread_id'];
+            final isMe = msg['sender_id'] == auth.userId;
+            for (int i = 0; i < _threads.length; i++) {
+              if (_threads[i].id == threadId) {
+                final t = _threads[i];
+                _threads.removeAt(i);
+                _threads.insert(0, _ChatThread(
+                  id: t.id,
+                  name: t.name,
+                  lastMessage: msg['content'] ?? '',
+                  time: 'Just now',
+                  avatarColor: t.avatarColor,
+                  avatarLabel: t.avatarLabel,
+                  isVerified: t.isVerified,
+                  isPinged: t.isPinged,
+                  unreadCount: isMe ? 0 : t.unreadCount + 1,
+                  type: t.type,
+                  eventTag: t.eventTag,
+                  otherUserId: t.otherUserId,
+                  isOnline: t.isOnline,
+                  isRequester: t.isRequester,
+                  requestMessageCount: t.requestMessageCount,
+                ));
+                break;
+              }
+            }
+          });
+        }
       }
     });
 
@@ -255,6 +291,11 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
               : (t['name'] as String? ?? t['thread_type'] as String? ?? 'Chat');
           final lastMsg = t['last_message'] ?? '';
           final isGroup = (t['thread_type'] ?? t['type']) == 'group';
+          final isRequest = t['is_request'] == true;
+          final type = isRequest 
+              ? _ChatType.request 
+              : (isGroup ? _ChatType.group : _ChatType.direct);
+          
           return _ChatThread(
             id: t['id'] ?? '',
             name: name,
@@ -262,10 +303,12 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
             time: _formatTime(t['last_message_at'] ?? t['updated_at'] ?? ''),
             avatarColor: _colorFromId(t['id'] ?? ''),
             avatarLabel: name.isNotEmpty ? name[0].toUpperCase() : '?',
-            type: isGroup ? _ChatType.group : _ChatType.direct,
+            type: type,
             otherUserId: t['other_user_id'] as String?,
             unreadCount: t['unread_count'] as int? ?? 0,
             isOnline: t['is_online'] == true,
+            isRequester: t['is_requester'] == true,
+            requestMessageCount: t['request_message_count'] as int? ?? 0,
           );
         }).toList();
       }
@@ -384,11 +427,18 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
 
   List<_ChatThread> _filtered(_ChatType? typeFilter) {
     return _threads.where((t) {
-      if (typeFilter == null && t.type == _ChatType.request) return false;
-      final matchesType = typeFilter == null || t.type == typeFilter;
+      // Exclude incoming requests from 'All'
+      if (typeFilter == null && t.type == _ChatType.request && !t.isRequester) return false;
+      
+      final matchesType = typeFilter == null || 
+                          t.type == typeFilter || 
+                          (typeFilter == _ChatType.direct && t.type == _ChatType.request && t.isRequester) ||
+                          (typeFilter == _ChatType.request && t.type == _ChatType.request && !t.isRequester); // Only incoming for Requests tab
+
       final matchesQuery = _query.isEmpty ||
           t.name.toLowerCase().contains(_query.toLowerCase()) ||
           t.lastMessage.toLowerCase().contains(_query.toLowerCase());
+          
       return matchesType && matchesQuery;
     }).toList();
   }
@@ -396,10 +446,10 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final allCount = _threads.where((t) => t.type != _ChatType.request).length;
-    final directCount = _threads.where((t) => t.type == _ChatType.direct).length;
+    final allCount = _threads.where((t) => !(t.type == _ChatType.request && !t.isRequester)).length;
+    final directCount = _threads.where((t) => t.type == _ChatType.direct || (t.type == _ChatType.request && t.isRequester)).length;
     final groupCount = _threads.where((t) => t.type == _ChatType.group).length;
-    final requestCount = _threads.where((t) => t.type == _ChatType.request).length;
+    final requestCount = _threads.where((t) => t.type == _ChatType.request && !t.isRequester).length;
 
     return AppScaffold(
       body: Column(
@@ -616,10 +666,10 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
               child: TabBarView(
                 controller: _tabCtrl,
                 children: [
-                  _ThreadList(threads: _filtered(null)),
-                  _ThreadList(threads: _filtered(_ChatType.direct)),
-                  _ThreadList(threads: _filtered(_ChatType.group)),
-                  _ThreadList(threads: _filtered(_ChatType.request)),
+                  _ThreadList(threads: _filtered(null), onRefresh: _fetchData),
+                  _ThreadList(threads: _filtered(_ChatType.direct), onRefresh: _fetchData),
+                  _ThreadList(threads: _filtered(_ChatType.group), onRefresh: _fetchData),
+                  _ThreadList(threads: _filtered(_ChatType.request), onRefresh: _fetchData),
                 ],
               ),
             ),
@@ -635,7 +685,8 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
 // ─────────────────────────────────────────────────────────────────────────────
 class _ThreadList extends StatelessWidget {
   final List<_ChatThread> threads;
-  const _ThreadList({required this.threads});
+  final VoidCallback onRefresh;
+  const _ThreadList({required this.threads, required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
@@ -655,7 +706,7 @@ class _ThreadList extends StatelessWidget {
         indent: 76,
         color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.08),
       ),
-      itemBuilder: (ctx, i) => _ThreadTile(thread: threads[i]),
+      itemBuilder: (ctx, i) => _ThreadTile(thread: threads[i], onRefresh: onRefresh),
     );
   }
 }
@@ -665,7 +716,8 @@ class _ThreadList extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _ThreadTile extends StatelessWidget {
   final _ChatThread thread;
-  const _ThreadTile({required this.thread});
+  final VoidCallback onRefresh;
+  const _ThreadTile({required this.thread, required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
@@ -674,9 +726,12 @@ class _ThreadTile extends StatelessWidget {
     final isUnread = thread.unreadCount > 0;
 
     return InkWell(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => _ChatDetailScreen(thread: thread)),
-      ),
+      onTap: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => _ChatDetailScreen(thread: thread)),
+        );
+        onRefresh();
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
@@ -923,6 +978,11 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
             ));
           });
           _scrollToBottom();
+          // Mark read instantly because we are looking at the chat
+          final token = context.read<AuthProvider>().accessToken;
+          if (token != null) {
+            ApiService.markAsRead(token, widget.thread.id);
+          }
         }
       } else if (type == 'message_sent') {
         final payload = data['payload'] as Map<String, dynamic>;
@@ -965,6 +1025,21 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
           _typingHideTimer = Timer(const Duration(seconds: 3), () {
             if (mounted) setState(() => _otherIsTyping = false);
           });
+        }
+      } else if (type == 'error') {
+        // Remove the last optimistic (unsent) bubble & show the error
+        final payload = data['payload'] as Map<String, dynamic>?;
+        final errMsg = payload?['message'] as String? ?? 'Message not delivered';
+        if (mounted) {
+          setState(() {
+            final tempIdx = _bubbles.lastIndexWhere((b) => b.id.startsWith('temp_'));
+            if (tempIdx != -1) _bubbles.removeAt(tempIdx);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(errMsg),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 3),
+          ));
         }
       }
     });
@@ -1593,6 +1668,30 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
 
   @override
 
+  Future<void> _acceptRequest() async {
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) return;
+    try {
+      final res = await ApiService.acceptRequest(token, widget.thread.id);
+      if (res.statusCode == 200 && mounted) {
+        Navigator.pop(context, true); // Pop and let the list refresh
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request accepted')));
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _declineRequest() async {
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) return;
+    try {
+      final res = await ApiService.declineRequest(token, widget.thread.id);
+      if (res.statusCode == 200 && mounted) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request declined')));
+      }
+    } catch (_) {}
+  }
+
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final t = widget.thread;
@@ -1928,67 +2027,133 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
                   )
                 : const SizedBox.shrink(key: ValueKey('no-typing')),
           ),
-          Container(
-            color: theme.colorScheme.surface,
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-            child: SafeArea(
-              top: false,
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Icon(_showEmojiPicker ? Icons.keyboard : Icons.emoji_emotions_outlined, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
-                    onPressed: () {
-                      FocusScope.of(context).unfocus(); // Close keyboard
-                      setState(() => _showEmojiPicker = !_showEmojiPicker);
-                    },
-                    padding: const EdgeInsets.only(right: 8),
-                    constraints: const BoxConstraints(),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _msgCtrl,
-                      focusNode: FocusNode()..addListener(() {
-                        if (mounted) setState(() => _showEmojiPicker = false);
-                      }),
-                      onChanged: (_) {
-                        // Throttle typing events to once per 2 seconds
-                        final now = DateTime.now();
-                        if (_lastTypingSent == null ||
-                            now.difference(_lastTypingSent!) > const Duration(seconds: 2)) {
-                          _lastTypingSent = now;
-                          final msgProv = context.read<MessageProvider>();
-                          msgProv.sendTyping(widget.thread.id);
-                        }
-                      },
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(
-                        hintText: 'Type a message...',
-                        hintStyle: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.38), fontSize: 14),
-                        filled: true,
-                        fillColor: theme.colorScheme.surfaceVariant.withValues(alpha: 0.4),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
+          if (t.type == _ChatType.request && !t.isRequester)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
+              ),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text("${t.name} wants to connect with you", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onPressed: _declineRequest,
+                            child: const Text("Decline"),
+                          ),
                         ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onPressed: _acceptRequest,
+                            child: const Text("Accept"),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (t.type == _ChatType.request && t.isRequester && t.requestMessageCount >= 10)
+            Container(
+              padding: const EdgeInsets.all(16),
+              color: theme.colorScheme.surface,
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.info_outline, size: 20, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        "You have reached the 10 message limit request for this user.",
+                        style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                        textAlign: TextAlign.center,
                       ),
-                      onSubmitted: (_) => _send(),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _send,
-                    child: Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(color: theme.colorScheme.primary, shape: BoxShape.circle),
-                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                  ],
+                ),
+              ),
+            )
+          else
+            Container(
+              color: theme.colorScheme.surface,
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(_showEmojiPicker ? Icons.keyboard : Icons.emoji_emotions_outlined, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                      onPressed: () {
+                        FocusScope.of(context).unfocus(); // Close keyboard
+                        setState(() => _showEmojiPicker = !_showEmojiPicker);
+                      },
+                      padding: const EdgeInsets.only(right: 8),
+                      constraints: const BoxConstraints(),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: TextField(
+                        controller: _msgCtrl,
+                        focusNode: FocusNode()..addListener(() {
+                          if (mounted) setState(() => _showEmojiPicker = false);
+                        }),
+                        onChanged: (_) {
+                          // Throttle typing events to once per 2 seconds
+                          final now = DateTime.now();
+                          if (_lastTypingSent == null ||
+                              now.difference(_lastTypingSent!) > const Duration(seconds: 2)) {
+                            _lastTypingSent = now;
+                            final msgProv = context.read<MessageProvider>();
+                            msgProv.sendTyping(widget.thread.id);
+                          }
+                        },
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          hintText: 'Type a message...',
+                          hintStyle: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.38), fontSize: 14),
+                          filled: true,
+                          fillColor: theme.colorScheme.surfaceVariant.withValues(alpha: 0.4),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        onSubmitted: (_) => _send(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: _send,
+                      child: Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(color: theme.colorScheme.primary, shape: BoxShape.circle),
+                        child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
           if (_showEmojiPicker)
             SizedBox(
               height: 250,
