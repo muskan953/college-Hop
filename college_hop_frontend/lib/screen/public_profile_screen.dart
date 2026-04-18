@@ -49,41 +49,113 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     }
   }
 
-  Future<void> _connect() async {
+  Future<void> _showConnectSheet() async {
     final token = context.read<AuthProvider>().accessToken;
     if (token == null) return;
+    
+    final fullName = (_profile?['full_name'] as String?)?.trim() ?? 'User';
+    final firstName = fullName.split(' ').first;
 
-    setState(() => _connecting = true);
-    try {
-      final res = await ApiService.connectUser(token, widget.userId);
-      if (res.statusCode == 201 && mounted) {
-        setState(() { _connected = true; _connecting = false; });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Connected successfully!'),
-            backgroundColor: Colors.green,
-          ),
+    final templates = [
+      "Hey $firstName! Would love to connect 👋",
+      "Hi $firstName, saw your profile — let's connect!",
+      "Hey $firstName, interested in connecting!"
+    ];
+
+    final msgCtrl = TextEditingController();
+    bool isSending = false;
+
+    // Use a StatefulBuilder so the bottom sheet can update its own local state (like sending spinners)
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                left: 24,
+                right: 24,
+                top: 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Send Connection Request", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text("Include a message to introduce yourself.", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
+                  const SizedBox(height: 24),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: templates.map((t) => ActionChip(
+                      label: Text(t, style: const TextStyle(fontSize: 12)),
+                      onPressed: () {
+                        msgCtrl.text = t;
+                      },
+                    )).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: msgCtrl,
+                    maxLines: 3,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: InputDecoration(
+                      hintText: "Write a message...",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: isSending ? null : () async {
+                        final msg = msgCtrl.text.trim();
+                        if (msg.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please add a message to connect.')));
+                          return;
+                        }
+
+                        setSheetState(() => isSending = true);
+                        try {
+                          final res = await ApiService.connectUser(token, widget.userId, msg);
+                          if (res.statusCode == 201 && mounted) {
+                            Navigator.pop(ctx); // Close sheet
+                            setState(() { _connected = true; _connecting = false; });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Request sent!'), backgroundColor: Colors.green, duration: Duration(seconds: 2)),
+                            );
+                          } else {
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not send request.'), backgroundColor: Colors.red, duration: Duration(seconds: 2)));
+                            setSheetState(() => isSending = false);
+                          }
+                        } catch (_) {
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Network error. Check connection.'), backgroundColor: Colors.red, duration: Duration(seconds: 2)));
+                          setSheetState(() => isSending = false);
+                        }
+                      },
+                      child: isSending
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Text("Send Request"),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            );
+          },
         );
-      } else if (mounted) {
-        setState(() => _connecting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not connect. Try again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _connecting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Network error. Try again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+      },
+    );
   }
 
   @override
@@ -260,13 +332,13 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: (_connecting || _connected) ? null : _connect,
+                      onPressed: (_connecting || _connected) ? null : _showConnectSheet,
                       icon: Icon(
                         _connected ? Icons.check_circle : Icons.person_add_alt_1,
                       ),
                       label: Text(
                         _connected
-                            ? 'Connected'
+                            ? 'Request Pending'
                             : _connecting
                                 ? 'Connecting...'
                                 : 'Connect',

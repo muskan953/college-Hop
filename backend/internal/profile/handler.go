@@ -8,15 +8,17 @@ import (
 	"strings"
 
 	"github.com/muskan953/college-Hop/internal/auth"
+	"github.com/muskan953/college-Hop/internal/messages"
 )
 
 type Handler struct {
 	repo     Repository
 	authRepo auth.Repository
+	msgRepo  messages.Repository
 }
 
-func NewHandler(repo Repository, authRepo auth.Repository) *Handler {
-	return &Handler{repo: repo, authRepo: authRepo}
+func NewHandler(repo Repository, authRepo auth.Repository, msgRepo messages.Repository) *Handler {
+	return &Handler{repo: repo, authRepo: authRepo, msgRepo: msgRepo}
 }
 
 // IsValidUploadURL checks that the URL is a valid absolute URL.
@@ -211,7 +213,7 @@ func (h *Handler) GetPublicProfile(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(profile)
 }
 
-// ConnectUser handles POST /users/{id}/connect — creates a connection between
+// ConnectUser handles POST /users/{id}/connect — creates a pending connection and request thread between
 // the authenticated user and the target user.
 func (h *Handler) ConnectUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -239,16 +241,43 @@ func (h *Handler) ConnectUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.repo.CreateConnection(r.Context(), user.ID, targetID)
-	if err != nil {
-		// Duplicate connections are silently ignored by the upsert
-		http.Error(w, "failed to create connection", http.StatusInternalServerError)
+	// Parse initial message from body
+	var req struct {
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		req.Message = ""
+	}
+	req.Message = strings.TrimSpace(req.Message)
+	if req.Message == "" {
+		http.Error(w, "message is required to send connection request", http.StatusBadRequest)
 		return
+	}
+
+	// 1. Create a pending connection
+	err := h.repo.CreateConnection(r.Context(), user.ID, targetID, "pending", &user.ID)
+	if err != nil {
+		http.Error(w, "failed to create connection request", http.StatusInternalServerError)
+		return
+	}
+
+	// 2. Create the request thread
+	thread, err := h.msgRepo.GetOrCreateDirectThread(r.Context(), user.ID, targetID, true)
+	if err != nil {
+		http.Error(w, "failed to create message thread", http.StatusInternalServerError)
+		return
+	}
+
+	// 3. Insert the first message into the thread
+	_, err = h.msgRepo.CreateMessage(r.Context(), thread.ID, user.ID, req.Message, nil, false)
+	if err != nil {
+		// Log error but don't fail the who request since the connection was created
+		log.Printf("[ConnectUser] Failed to send initial message: %v", err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"message": "connected"})
+	json.NewEncoder(w).Encode(map[string]string{"message": "connection request sent"})
 }
 
 // RequestAlternateEmailOTP handles POST /me/alternate-email/request-otp.

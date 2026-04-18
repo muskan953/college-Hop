@@ -16,8 +16,7 @@ class _ConnectionSuccessScreenState extends State<ConnectionSuccessScreen> {
   }
 
   Future<void> _navigateToNext() async {
-    // Wait for 5 seconds as requested
-    await Future.delayed(const Duration(seconds: 5));
+    await Future.delayed(const Duration(seconds: 1));
     if (mounted) {
       Navigator.pop(context, true); // Go back after success, signalling to open sheet
     }

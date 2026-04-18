@@ -238,9 +238,31 @@ class ApiService {
     });
   }
 
-  /// POST /users/:id/connect — connect with another user
-  static Future<http.Response> connectUser(String token, String userId) async {
+  /// POST /users/:id/connect — connect with another user (sends a request pending approval)
+  static Future<http.Response> connectUser(String token, String userId, String message) async {
     final url = Uri.parse("$baseUrl/users/$userId/connect");
+    return await http.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({"message": message}),
+    );
+  }
+
+  /// POST /messages/threads/:id/accept — Accept a request thread
+  static Future<http.Response> acceptRequest(String token, String threadId) async {
+    final url = Uri.parse("$baseUrl/messages/threads/$threadId/accept");
+    return await http.post(url, headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    });
+  }
+
+  /// POST /messages/threads/:id/decline — Decline a request thread
+  static Future<http.Response> declineRequest(String token, String threadId) async {
+    final url = Uri.parse("$baseUrl/messages/threads/$threadId/decline");
     return await http.post(url, headers: {
       "Content-Type": "application/json",
       "Authorization": "Bearer $token",

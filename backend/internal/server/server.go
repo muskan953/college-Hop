@@ -33,7 +33,7 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 	mux.HandleFunc("/auth/refresh", authHandler.Refresh)
 	mux.HandleFunc("/auth/logout", authHandler.Logout)
 
-	profileHandler := profile.NewHandler(profileRepo, authRepo)
+	profileHandler := profile.NewHandler(profileRepo, authRepo, messagesRepo)
 
 	mux.Handle("/me", authMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {

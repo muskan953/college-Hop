@@ -12,7 +12,7 @@ type Repository interface {
 	GetPublicProfile(ctx context.Context, userID string) (*PublicProfileResponse, error)
 	UpsertPreferences(ctx context.Context, userID string, req UpdatePreferencesRequest) error
 	GetPreferences(ctx context.Context, userID string) (*PreferencesResponse, error)
-	CreateConnection(ctx context.Context, userID1, userID2 string) error
+	CreateConnection(ctx context.Context, userID1, userID2, status string, requesterID *string) error
 	GetConnections(ctx context.Context, userID string) ([]ConnectionResponse, error)
 	SaveAlternateEmail(ctx context.Context, userID, email string) error
 	BlockUser(ctx context.Context, blockerID, blockedID string) error
@@ -389,12 +389,12 @@ func (r *PostgresRepository) GetPublicProfile(ctx context.Context, userID string
 	return &p, nil
 }
 
-func (r *PostgresRepository) CreateConnection(ctx context.Context, userID1, userID2 string) error {
+func (r *PostgresRepository) CreateConnection(ctx context.Context, userID1, userID2, status string, requesterID *string) error {
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO connections (user_id_1, user_id_2, status, created_at)
-		VALUES ($1, $2, 'connected', NOW())
+		INSERT INTO connections (user_id_1, user_id_2, status, created_at, requester_id)
+		VALUES ($1, $2, $3, NOW(), $4)
 		ON CONFLICT (user_id_1, user_id_2) DO NOTHING
-	`, userID1, userID2)
+	`, userID1, userID2, status, requesterID)
 	return err
 }
 
