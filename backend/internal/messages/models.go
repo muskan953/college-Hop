@@ -16,6 +16,7 @@ type Thread struct {
 type ThreadSummary struct {
 	ID              string    `json:"id"`
 	Type            string    `json:"thread_type"`
+	GroupID         *string   `json:"group_id"`
 	Name            string    `json:"name"`
 	LastMessage     string    `json:"last_message"`
 	LastMessageTime time.Time `json:"last_message_at"`

@@ -12,6 +12,7 @@ class WebSocketService {
   Timer? _reconnectTimer;
   int _reconnectAttempts = 0;
   String? _currentToken;
+  String? Function()? _getToken;
   bool _disposed = false;
   bool _intentionalClose = false;
 
@@ -26,7 +27,11 @@ class WebSocketService {
   bool get isConnected => _channel != null;
 
   /// Connect to the WebSocket server with the given JWT token.
-  void connect(String token) {
+  /// Connect to the WebSocket server.
+  /// [token] is the current JWT. [getToken] is an optional getter that
+  /// returns the latest token; used during reconnections so the WS always
+  /// authenticates with a potentially refreshed token.
+  void connect(String token, {String? Function()? getToken}) {
     if (_disposed) return;
 
     _reconnectTimer?.cancel();
@@ -43,6 +48,7 @@ class WebSocketService {
     }
 
     _currentToken = token;
+    if (getToken != null) _getToken = getToken;
     _intentionalClose = false;
 
     try {
@@ -144,7 +150,7 @@ class WebSocketService {
   }
 
   void _scheduleReconnect() {
-    if (_disposed || _currentToken == null) return;
+    if (_disposed) return;
     if (_reconnectAttempts >= 8) {
       debugPrint('[WS] Max reconnect attempts reached, giving up');
       return;
@@ -159,7 +165,13 @@ class WebSocketService {
 
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(delay, () {
-      connect(_currentToken!);
+      // Use the getter to pick up a potentially refreshed token.
+      final freshToken = _getToken?.call() ?? _currentToken;
+      if (freshToken == null) {
+        debugPrint('[WS] No token available for reconnect, giving up');
+        return;
+      }
+      connect(freshToken);
     });
   }
 }

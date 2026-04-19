@@ -59,9 +59,7 @@ func (c *Client) readPump() {
 	for {
 		_, data, err := c.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("[Client] Read error for %s: %v", c.userID, err)
-			}
+			log.Printf("[Client] Read error for %s: %v", c.userID, err)
 			break
 		}
 

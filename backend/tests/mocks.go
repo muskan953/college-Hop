@@ -116,7 +116,7 @@ func (m *MockProfileRepository) GetPreferences(ctx context.Context, userID strin
 func (m *MockProfileRepository) GetPublicProfile(ctx context.Context, userID string) (*profile.PublicProfileResponse, error) {
 	return &profile.PublicProfileResponse{}, nil
 }
-func (m *MockProfileRepository) CreateConnection(ctx context.Context, userID1, userID2 string) error {
+func (m *MockProfileRepository) CreateConnection(ctx context.Context, userID1, userID2, status string, requesterID *string) error {
 	return nil
 }
 func (m *MockProfileRepository) GetConnections(ctx context.Context, userID string) ([]profile.ConnectionResponse, error) {
@@ -211,6 +211,9 @@ func (m *MockGroupsRepository) CreateGroup(ctx context.Context, group *groups.Gr
 }
 func (m *MockGroupsRepository) GetGroup(ctx context.Context, groupID string) (*groups.Group, error) {
 	return &groups.Group{}, nil
+}
+func (m *MockGroupsRepository) GetGroupThreadID(ctx context.Context, groupID string) (string, error) {
+	return "mock-thread-id", nil
 }
 func (m *MockGroupsRepository) JoinGroup(ctx context.Context, groupID, userID string) error {
 	return nil

@@ -10,6 +10,7 @@ import 'package:college_hop/services/api_service.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 import 'package:college_hop/screen/notification_screen.dart';
 import 'package:college_hop/screen/public_profile_screen.dart';
+import 'package:college_hop/screen/group_details_screen.dart';
 import 'package:college_hop/providers/profile_provider.dart';
 import 'package:college_hop/widgets/custom_app_bar.dart';
 import 'package:http/http.dart' as http;
@@ -32,6 +33,7 @@ class _ChatThread {
   final int unreadCount;
   final _ChatType type;
   final String? eventTag;
+  final String? groupId;
 
   final String? otherUserId;
   final bool isOnline;
@@ -50,6 +52,7 @@ class _ChatThread {
     this.unreadCount = 0,
     required this.type,
     this.eventTag,
+    this.groupId,
     this.otherUserId,
     this.isOnline = false,
     this.isRequester = false,
@@ -87,6 +90,34 @@ const _mockConnections = <_Connection>[
   _Connection('5', 'Michael', Color(0xFFEC407A), false),
 ];
 
+Color getAvatarColorForId(String id) {
+  final colors = [
+    const Color(0xFF5C6BC0), const Color(0xFFEC407A),
+    const Color(0xFF26A69A), const Color(0xFFFF7043),
+    const Color(0xFF42A5F5), const Color(0xFFAB47BC),
+    const Color(0xFF66BB6A), const Color(0xFFFFCA28),
+  ];
+  return colors[id.hashCode.abs() % colors.length];
+}
+
+Future<void> openGroupChat(BuildContext context, {
+  required String threadId,
+  required String groupName,
+}) async {
+  final thread = _ChatThread(
+    id: threadId,
+    name: groupName,
+    lastMessage: '',
+    time: 'Now',
+    avatarColor: getAvatarColorForId(threadId),
+    avatarLabel: groupName.isNotEmpty ? groupName[0].toUpperCase() : '?',
+    type: _ChatType.group,
+  );
+  await Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => _ChatDetailScreen(thread: thread)),
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  MESSAGES SCREEN
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,8 +144,8 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
     _tabCtrl = TabController(length: 4, vsync: this);
     _fetchData();
     final msgProvider = context.read<MessageProvider>();
-    _wsSub = msgProvider.messageStream.listen((_) {
-      if (mounted) _refreshThreads();
+    _wsSub = msgProvider.messageStream.listen((event) {
+      if (mounted && event['type'] == 'new_message') _refreshThreads();
     });
 
     // Poll thread list every 4 seconds for live last-message updates ONLY if disconnected
@@ -158,6 +189,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
           avatarLabel: name.isNotEmpty ? name[0].toUpperCase() : '?',
           type: type,
           otherUserId: t['other_user_id'] as String?,
+          groupId: t['group_id'] as String?,
           unreadCount: t['unread_count'] as int? ?? 0,
           isOnline: t['is_online'] == true,
           isRequester: t['is_requester'] == true,
@@ -311,6 +343,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
             avatarLabel: name.isNotEmpty ? name[0].toUpperCase() : '?',
             type: type,
             otherUserId: t['other_user_id'] as String?,
+            groupId: t['group_id'] as String?,
             unreadCount: t['unread_count'] as int? ?? 0,
             isOnline: t['is_online'] == true,
             isRequester: t['is_requester'] == true,
@@ -400,6 +433,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
           avatarLabel: conn.name.isNotEmpty ? conn.name[0] : '?',
           type: _ChatType.direct,
           otherUserId: conn.id,
+          groupId: null,
         );
         if (!mounted) return;
         Navigator.of(context).push(
@@ -1623,6 +1657,8 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
 
   void _showProfileSheet() {
     final t = widget.thread;
+    if (t.type == _ChatType.group && (t.groupId == null || t.groupId!.isEmpty)) return;
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1632,7 +1668,7 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
           height: MediaQuery.of(context).size.height * 0.9,
           decoration: BoxDecoration(
             color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -1647,17 +1683,20 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
                 ),
               ),
               Expanded(
-                child: PublicProfileScreen(
-                  userId: widget.thread.otherUserId ?? '',
-                  isConnected: true,
-                  avatarColor: widget.thread.avatarColor,
-                ),
+                child: t.type == _ChatType.group 
+                  ? GroupDetailsScreen(groupId: t.groupId!)
+                  : PublicProfileScreen(
+                      userId: t.otherUserId ?? '',
+                      isConnected: true,
+                      avatarColor: t.avatarColor,
+                    ),
               ),
             ],
           ),
         );
       },
     );
+
   }
 
 
@@ -2329,6 +2368,18 @@ class _BubbleWidget extends StatelessWidget {
                             ),
                           ),
                         ],
+                        if (thread.type == _ChatType.group && !isMe && bubble.senderName.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: Text(
+                              bubble.senderName,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ),
                         searchQuery.isNotEmpty
                           ? _highlightedText(bubble.text, searchQuery, isMe, theme)
                           : Text(

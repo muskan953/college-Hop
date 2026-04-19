@@ -52,7 +52,9 @@ func (r *PostgresRepository) GetOrCreateDirectThread(ctx context.Context, userID
 	// Check if a direct thread already exists between these two users
 	var t Thread
 	err := r.db.QueryRowContext(ctx, `
-		SELECT mt.id, mt.type, mt.group_id, mt.created_at, mt.is_request, mt.request_message_count
+		SELECT mt.id, 
+			mt.type,
+			mt.group_id, mt.created_at, mt.is_request, mt.request_message_count
 		FROM message_threads mt
 		JOIN thread_participants tp1 ON tp1.thread_id = mt.id AND tp1.user_id = $1
 		JOIN thread_participants tp2 ON tp2.thread_id = mt.id AND tp2.user_id = $2
@@ -128,6 +130,7 @@ func (r *PostgresRepository) ListUserThreads(ctx context.Context, userID string)
 		SELECT
 			mt.id,
 			mt.type,
+			mt.group_id,
 			COALESCE(
 				CASE WHEN mt.type = 'group' THEN tg.name
 				     ELSE COALESCE(p.full_name, u.email)
@@ -190,10 +193,11 @@ func (r *PostgresRepository) ListUserThreads(ctx context.Context, userID string)
 	var threads []ThreadSummary
 	for rows.Next() {
 		var ts ThreadSummary
+		var groupID sql.NullString
 		var avatarURL sql.NullString
 		var otherUserID sql.NullString
 		var isRequester sql.NullBool
-		if err := rows.Scan(&ts.ID, &ts.Type, &ts.Name, &ts.LastMessage,
+		if err := rows.Scan(&ts.ID, &ts.Type, &groupID, &ts.Name, &ts.LastMessage,
 			&ts.LastMessageTime, &avatarURL, &otherUserID, &ts.UnreadCount, &ts.IsRequest, &ts.RequestMessageCount, &isRequester); err != nil {
 			return nil, err
 		}
@@ -202,6 +206,9 @@ func (r *PostgresRepository) ListUserThreads(ctx context.Context, userID string)
 		}
 		if otherUserID.Valid && otherUserID.String != "" {
 			ts.OtherUserID = &otherUserID.String
+		}
+		if groupID.Valid && groupID.String != "" {
+			ts.GroupID = &groupID.String
 		}
 		if isRequester.Valid {
 			ts.IsRequester = isRequester.Bool

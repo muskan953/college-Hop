@@ -11,6 +11,7 @@ class MessageProvider with ChangeNotifier {
   StreamSubscription? _wsSubscription;
   String? _currentToken;
   bool _initialized = false;
+  bool _hasLoadedThreads = false;
 
   // Thread state
   List<Map<String, dynamic>> threads = [];
@@ -49,7 +50,7 @@ class MessageProvider with ChangeNotifier {
     _currentToken = token;
 
     // WebSocket works on Web for ws://localhost!
-    _ws.connect(token);
+    _ws.connect(token, getToken: () => _currentToken);
     _wsSubscription?.cancel();
     _wsSubscription = _ws.messageStream.listen(_handleWSMessage);
 
@@ -60,8 +61,16 @@ class MessageProvider with ChangeNotifier {
   /// Load threads only if they haven't been loaded yet (lazy load for non-Messages screens).
   Future<void> loadThreadsIfNeeded(String token) async {
     _currentToken ??= token;
-    if (threads.isNotEmpty || isLoadingThreads) return;
+    if (_hasLoadedThreads || isLoadingThreads) return;
     await loadThreads();
+  }
+
+  /// Force reload all threads from the server, useful after accepting/declining requests.
+  Future<void> forceLoadThreads() async {
+    _hasLoadedThreads = false;
+    if (_currentToken != null) {
+      await loadThreads();
+    }
   }
 
   /// Load all threads from the server.
@@ -79,6 +88,7 @@ class MessageProvider with ChangeNotifier {
       debugPrint('[MsgProvider] Failed to load threads: $e');
     }
 
+    _hasLoadedThreads = true;
     isLoadingThreads = false;
     notifyListeners();
   }

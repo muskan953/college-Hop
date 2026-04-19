@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:college_hop/providers/auth_provider.dart';
 import 'package:college_hop/providers/profile_provider.dart';
 import 'package:college_hop/services/api_service.dart';
+import 'package:college_hop/screen/messages_screen.dart';
 
 class GroupDetailsScreen extends StatefulWidget {
   final String groupId;
@@ -27,6 +28,7 @@ class GroupDetailsScreen extends StatefulWidget {
 class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   bool _loading = true;
   bool _isJoining = false;
+  bool _isLeaving = false;
   String? _error;
   Map<String, dynamic>? _groupData;
 
@@ -110,6 +112,45 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
       if (mounted) {
         setState(() => _isJoining = false);
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not connect to server.')));
+      }
+    }
+  }
+
+  Future<void> _leaveGroup() async {
+    if (_isLeaving) return;
+    setState(() => _isLeaving = true);
+
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) {
+      setState(() => _isLeaving = false);
+      return;
+    }
+
+    try {
+      final res = await ApiService.leaveGroup(token, widget.groupId)
+          .timeout(const Duration(seconds: 15));
+
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        setState(() { _isLeaving = false; });
+        messenger.showSnackBar(const SnackBar(content: Text('Left group successfully.')));
+        await _fetchGroupDetails();
+      } else {
+        setState(() => _isLeaving = false);
+        final msg = res.body.trim().isNotEmpty ? res.body.trim() : 'Could not leave group.';
+        messenger.showSnackBar(SnackBar(content: Text(msg)));
+      }
+    } on TimeoutException {
+      if (mounted) {
+        setState(() => _isLeaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request timed out.')));
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLeaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not connect.')));
       }
     }
   }
@@ -333,7 +374,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
               Text('Members ($memberCount)',
                   style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-              ...members.map((m) => _buildMemberTile(theme, m, myUserId)),
+              ...members.map((m) => _buildMemberTile(theme, m, myUserId, data['created_by'] as String?)),
             ],
           ),
         ),
@@ -355,22 +396,52 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
               width: double.infinity,
               height: 52,
               child: isMember
-                  ? ElevatedButton.icon(
-                      onPressed: () {
-                        // TODO: Navigate to chat screen when implemented
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Chat coming soon!')));
-                      },
-                      icon: const Icon(Icons.chat_bubble_outline, size: 20),
-                      label: const Text(
-                        'Message Group',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                        foregroundColor: theme.colorScheme.onSurface,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
+                  ? Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              final threadId = data['thread_id'] as String?;
+                              if (threadId != null && threadId.isNotEmpty) {
+                                openGroupChat(context, threadId: threadId, groupName: groupName);
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Chat thread is not available.')));
+                              }
+                            },
+                            icon: const Icon(Icons.chat_bubble_outline, size: 20),
+                            label: const Text(
+                              'Message Group',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                              foregroundColor: theme.colorScheme.onSurface,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 1,
+                          child: OutlinedButton(
+                            onPressed: _isLeaving ? null : _leaveGroup,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.colorScheme.error,
+                              side: BorderSide(color: theme.colorScheme.error),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: _isLeaving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(color: Colors.red, strokeWidth: 2))
+                                : const Text('Leave', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
                     )
                   : ElevatedButton.icon(
                       onPressed: _isJoining ? null : _joinGroup,
@@ -454,11 +525,21 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   }
 
   Widget _buildMemberTile(ThemeData theme, Map<String, dynamic> member,
-      String? myUserId) {
+      String? myUserId, String? creatorId) {
     final name = member['full_name'] as String? ?? 'Unknown';
     final college = member['college_name'] as String? ?? '';
-    final isMe = member['user_id'] == myUserId;
-    final displayName = isMe ? '$name (You)' : name;
+    final userId = member['user_id'] as String?;
+    final isMe = userId == myUserId;
+    final isCreator = userId != null && userId == creatorId;
+
+    String displayName = name;
+    if (isMe && isCreator) {
+      displayName += ' (You, Creator)';
+    } else if (isMe) {
+      displayName += ' (You)';
+    } else if (isCreator) {
+      displayName += ' (Creator)';
+    }
 
     final hue = (name.hashCode % 360).abs().toDouble();
     final avatarColor = HSLColor.fromAHSL(1.0, hue, 0.55, 0.45).toColor();

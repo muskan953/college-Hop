@@ -711,6 +711,7 @@ func TestKickMember_TargetNotInGroup(t *testing.T) {
 type MockGroupsRepositoryFull struct {
 	CreateGroupFunc                     func(ctx context.Context, group *groups.Group) error
 	GetGroupFunc                        func(ctx context.Context, groupID string) (*groups.Group, error)
+	GetGroupThreadIDFunc                func(ctx context.Context, groupID string) (string, error)
 	JoinGroupFunc                       func(ctx context.Context, groupID, userID string) error
 	JoinGroupCheckedFunc                func(ctx context.Context, groupID, userID string) error
 	GetMemberCountFunc                  func(ctx context.Context, groupID string) (int, error)
@@ -739,6 +740,12 @@ func (m *MockGroupsRepositoryFull) GetGroup(ctx context.Context, groupID string)
 		return m.GetGroupFunc(ctx, groupID)
 	}
 	return &groups.Group{MaxMembers: 4}, nil
+}
+func (m *MockGroupsRepositoryFull) GetGroupThreadID(ctx context.Context, groupID string) (string, error) {
+	if m.GetGroupThreadIDFunc != nil {
+		return m.GetGroupThreadIDFunc(ctx, groupID)
+	}
+	return "mock-thread-id", nil
 }
 func (m *MockGroupsRepositoryFull) JoinGroup(ctx context.Context, groupID, userID string) error {
 	if m.JoinGroupFunc != nil {

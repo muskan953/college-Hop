@@ -13,6 +13,7 @@ var ErrGroupFull = errors.New("group is full")
 type Repository interface {
 	CreateGroup(ctx context.Context, group *Group) error
 	GetGroup(ctx context.Context, groupID string) (*Group, error)
+	GetGroupThreadID(ctx context.Context, groupID string) (string, error)
 	// JoinGroup is a plain insert used internally (e.g. auto-join on create).
 	JoinGroup(ctx context.Context, groupID, userID string) error
 	// JoinGroupChecked atomically checks capacity and joins in one transaction.
@@ -61,13 +62,33 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (r *PostgresRepository) CreateGroup(ctx context.Context, group *Group) error {
-	return r.db.QueryRowContext(ctx,
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	err = tx.QueryRowContext(ctx,
 		`INSERT INTO travel_groups (event_id, name, description, created_by, max_members, departure_date, meeting_point)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 RETURNING id`,
 		group.EventID, group.Name, group.Description, group.CreatedBy, group.MaxMembers,
 		group.DepartureDate, group.MeetingPoint,
 	).Scan(&group.ID)
+	if err != nil {
+		return err
+	}
+
+	// Wait, to safely insert into message_threads without failing if user is missing, it's fine
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO message_threads (type, group_id) VALUES ('group', $1)`,
+		group.ID,
+	)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (r *PostgresRepository) GetGroup(ctx context.Context, groupID string) (*Group, error) {
@@ -84,13 +105,61 @@ func (r *PostgresRepository) GetGroup(ctx context.Context, groupID string) (*Gro
 	return &g, nil
 }
 
+func (r *PostgresRepository) GetGroupThreadID(ctx context.Context, groupID string) (string, error) {
+	var threadID string
+	err := r.db.QueryRowContext(ctx, `SELECT id FROM message_threads WHERE group_id = $1 AND type = 'group' LIMIT 1`, groupID).Scan(&threadID)
+	if err == sql.ErrNoRows {
+		// Backwards compatibility: Create the thread if it doesn't exist for older groups
+		err = r.db.QueryRowContext(ctx,
+			`INSERT INTO message_threads (type, group_id) VALUES ('group', $1) RETURNING id`,
+			groupID,
+		).Scan(&threadID)
+		
+		if err == nil {
+			// Backfill all current group members into thread_participants
+			_, _ = r.db.ExecContext(ctx,
+				`INSERT INTO thread_participants (thread_id, user_id)
+				 SELECT $1, user_id FROM group_members WHERE group_id = $2
+				 ON CONFLICT DO NOTHING`,
+				threadID, groupID,
+			)
+		}
+		return threadID, err
+	}
+	return threadID, err
+}
+
 // JoinGroup is a plain insert â€” used for the auto-join when creating a group.
 func (r *PostgresRepository) JoinGroup(ctx context.Context, groupID, userID string) error {
-	_, err := r.db.ExecContext(ctx,
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx,
 		`INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)
 		 ON CONFLICT DO NOTHING`,
 		groupID, userID)
-	return err
+	if err != nil {
+		return err
+	}
+
+	var threadID string
+	err = tx.QueryRowContext(ctx, `SELECT id FROM message_threads WHERE group_id = $1 AND type = 'group' LIMIT 1`, groupID).Scan(&threadID)
+	if err == nil {
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO thread_participants (thread_id, user_id) VALUES ($1, $2)
+			 ON CONFLICT DO NOTHING`,
+			threadID, userID)
+		if err != nil {
+			return err
+		}
+	} else if err != sql.ErrNoRows {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // JoinGroupChecked performs an atomic capacity check + insert inside a transaction.
@@ -132,6 +201,21 @@ func (r *PostgresRepository) JoinGroupChecked(ctx context.Context, groupID, user
 	if err != nil {
 		return err
 	}
+
+	var threadID string
+	err = tx.QueryRowContext(ctx, `SELECT id FROM message_threads WHERE group_id = $1 AND type = 'group' LIMIT 1`, groupID).Scan(&threadID)
+	if err == nil {
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO thread_participants (thread_id, user_id) VALUES ($1, $2)
+			 ON CONFLICT DO NOTHING`,
+			threadID, userID)
+		if err != nil {
+			return err
+		}
+	} else if err != sql.ErrNoRows {
+		return err
+	}
+
 	return tx.Commit()
 }
 
@@ -361,10 +445,33 @@ func (r *PostgresRepository) DeleteGroup(ctx context.Context, groupID string) er
 
 // RemoveMember removes a single user from a group
 func (r *PostgresRepository) RemoveMember(ctx context.Context, groupID, userID string) error {
-	_, err := r.db.ExecContext(ctx,
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx,
 		`DELETE FROM group_members WHERE group_id = $1 AND user_id = $2`,
 		groupID, userID)
-	return err
+	if err != nil {
+		return err
+	}
+
+	var threadID string
+	err = tx.QueryRowContext(ctx, `SELECT id FROM message_threads WHERE group_id = $1 AND type = 'group' LIMIT 1`, groupID).Scan(&threadID)
+	if err == nil {
+		_, err = tx.ExecContext(ctx,
+			`DELETE FROM thread_participants WHERE thread_id = $1 AND user_id = $2`,
+			threadID, userID)
+		if err != nil {
+			return err
+		}
+	} else if err != sql.ErrNoRows {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // IsGroupMember returns true if the user is currently a member of the group

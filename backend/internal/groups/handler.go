@@ -312,11 +312,14 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		members = []GroupMemberProfile{}
 	}
 
+	threadID, _ := h.repo.GetGroupThreadID(r.Context(), groupID)
+
 	resp := GroupDetailResponse{
 		Group:         *group,
 		MemberCount:   len(members),
 		Members:       members,
 		CurrentUserID: user.ID,
+		ThreadID:      threadID,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

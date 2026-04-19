@@ -40,12 +40,26 @@ class AuthProvider with ChangeNotifier {
     _loadTokens();
   }
 
+  /// Register the global token refresh callback so ApiService can silently
+  /// refresh expired tokens on any 401 response.
+  void _registerRefreshHandler() {
+    ApiService.onTokenRefresh = () async {
+      final success = await tryRefresh();
+      return success ? _accessToken : null;
+    };
+  }
+
   Future<void> _loadTokens() async {
     try {
       _accessToken = await _storage.read(key: "access_token");
       _refreshToken = await _storage.read(key: "refresh_token");
       _email = await _storage.read(key: "email");
       _userId = _parseUserIdFromToken(_accessToken);
+
+      if (_accessToken != null) {
+        _registerRefreshHandler();
+      }
+
       notifyListeners();
     } catch (e) {
       debugPrint("Failed to load tokens: $e");
@@ -83,6 +97,8 @@ class AuthProvider with ChangeNotifier {
         await _storage.write(key: "access_token", value: _accessToken);
         await _storage.write(key: "refresh_token", value: _refreshToken);
         await _storage.write(key: "email", value: _email);
+
+        _registerRefreshHandler();
         
         notifyListeners();
         return true;
@@ -101,6 +117,9 @@ class AuthProvider with ChangeNotifier {
     _refreshToken = null;
     _email = null;
     _userId = null;
+
+    // Unregister the refresh handler
+    ApiService.onTokenRefresh = null;
 
     await _storage.delete(key: "access_token");
     await _storage.delete(key: "refresh_token");
@@ -134,4 +153,3 @@ class AuthProvider with ChangeNotifier {
     }
   }
 }
-

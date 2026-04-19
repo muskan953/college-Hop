@@ -56,6 +56,7 @@ type GroupDetailResponse struct {
 	MemberCount   int                  `json:"member_count"`
 	Members       []GroupMemberProfile `json:"members"`
 	CurrentUserID string               `json:"current_user_id"`
+	ThreadID      string               `json:"thread_id"`
 }
 
 // UpdateGroupRequest is the payload for PUT /groups/{id}

@@ -14,6 +14,7 @@ import 'package:college_hop/theme/app_scaffold.dart';
 import 'package:college_hop/screen/connect_profile_screen.dart';
 import 'package:college_hop/widgets/select_event_sheet.dart';
 import 'package:college_hop/widgets/custom_app_bar.dart';
+import 'package:college_hop/screen/messages_screen.dart';
 
 class MyEvent extends StatefulWidget {
   const MyEvent({super.key});
@@ -617,9 +618,26 @@ class _MyEventState extends State<MyEvent> {
             height: 36,
             child: isMember
                 ? ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Chat coming soon!')));
+                    onPressed: () async {
+                      final token = context.read<AuthProvider>().accessToken;
+                      if (token == null) return;
+                      
+                      try {
+                        final res = await ApiService.getGroupDetails(token, groupId);
+                        if (res.statusCode == 200 && context.mounted) {
+                          final data = jsonDecode(res.body);
+                          final threadId = data['thread_id'] as String?;
+                          if (threadId != null && threadId.isNotEmpty) {
+                            openGroupChat(context, threadId: threadId, groupName: groupName);
+                            return;
+                          }
+                        }
+                      } catch (_) {}
+                      
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Chat thread is not available.')));
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.colorScheme.surfaceContainerHighest,

@@ -105,8 +105,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         );
         // Force reload threads so Messages tab and bell red dot update immediately
         final msgProvider = context.read<MessageProvider>();
-        msgProvider.threads = []; // reset so loadThreadsIfNeeded re-fetches
-        await msgProvider.loadThreadsIfNeeded(token);
+        await msgProvider.forceLoadThreads();
         context.read<ProfileProvider>().fetchProfile(token);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -134,8 +133,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         setState(() => _notifications.removeAt(index));
         // Force reload threads so bell red dot updates
         final msgProvider = context.read<MessageProvider>();
-        msgProvider.threads = [];
-        await msgProvider.loadThreadsIfNeeded(token);
+        await msgProvider.forceLoadThreads();
         context.read<ProfileProvider>().fetchProfile(token);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
