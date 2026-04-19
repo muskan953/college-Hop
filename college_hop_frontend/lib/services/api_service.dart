@@ -168,6 +168,31 @@ class ApiService {
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
+  static Future<http.Response> createGroup(String token, Map<String, dynamic> data) =>
+      _withAuth(token, (t) => http.post(
+        Uri.parse("$baseUrl/groups"),
+        headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
+        body: jsonEncode(data),
+      ));
+
+  static Future<http.Response> getGroupRequests(String token, String groupId) =>
+      _withAuth(token, (t) => http.get(
+        Uri.parse("$baseUrl/groups/$groupId/requests"),
+        headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
+      ));
+
+  static Future<http.Response> acceptGroupRequest(String token, String groupId, String userId) =>
+      _withAuth(token, (t) => http.post(
+        Uri.parse("$baseUrl/groups/$groupId/requests/$userId/accept"),
+        headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
+      ));
+
+  static Future<http.Response> declineGroupRequest(String token, String groupId, String userId) =>
+      _withAuth(token, (t) => http.post(
+        Uri.parse("$baseUrl/groups/$groupId/requests/$userId/decline"),
+        headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
+      ));
+
   // ── Upload (StreamedResponse — not intercepted) ─────────────────────────
 
   /// Upload a file (e.g. ID card PDF) to the backend.

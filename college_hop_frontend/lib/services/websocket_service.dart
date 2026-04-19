@@ -15,6 +15,7 @@ class WebSocketService {
   String? Function()? _getToken;
   bool _disposed = false;
   bool _intentionalClose = false;
+  int? _closeCode; // tracks last server-sent close code
 
   /// Monotonically increasing generation ID. Every call to connect() bumps
   /// this so that listeners from old channels can detect they are stale.
@@ -65,7 +66,16 @@ class WebSocketService {
       _channel!.stream.listen(
         _onMessage,
         onDone: () {
-          if (_generation == gen) _onDisconnect();
+          if (_generation == gen) {
+            // If the server sent a normal close (1000) or going away (1001),
+            // treat it as intentional so we don't immediately reconnect.
+            final closeCode = _channel?.closeCode ?? _closeCode;
+            if (closeCode == 1000 || closeCode == 1001) {
+              _intentionalClose = true;
+            }
+            _closeCode = null;
+            _onDisconnect();
+          }
         },
         onError: (error) {
           debugPrint('[WS] Error: $error');

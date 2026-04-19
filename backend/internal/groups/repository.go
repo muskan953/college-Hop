@@ -17,8 +17,9 @@ type Repository interface {
 	// JoinGroup is a plain insert used internally (e.g. auto-join on create).
 	JoinGroup(ctx context.Context, groupID, userID string) error
 	// JoinGroupChecked atomically checks capacity and joins in one transaction.
+	// Returns true if a request was created, false if direct join.
 	// Returns ErrGroupFull if the group is already at max capacity.
-	JoinGroupChecked(ctx context.Context, groupID, userID string) error
+	JoinGroupChecked(ctx context.Context, groupID, userID string) (bool, error)
 	GetMemberCount(ctx context.Context, groupID string) (int, error)
 	// GetGroupsForEvent is kept for backward compatibility; prefer GetGroupsWithCountsForEvent.
 	GetGroupsForEvent(ctx context.Context, eventID string) ([]Group, error)
@@ -42,6 +43,12 @@ type Repository interface {
 	// GetAllGroups returns all travel groups along with member count and whether
 	// the given userID is currently a member of each group.
 	GetAllGroups(ctx context.Context, userID string) ([]GroupWithDetails, error)
+
+	// Join requests
+	CreateJoinRequest(ctx context.Context, groupID, userID string) error
+	GetJoinRequests(ctx context.Context, groupID string) ([]GroupMemberProfile, error)
+	AcceptJoinRequest(ctx context.Context, groupID, userID string) error
+	DeclineJoinRequest(ctx context.Context, groupID, userID string) error
 }
 
 // UserWithInterests holds a user's profile data and interests for matching
@@ -69,11 +76,11 @@ func (r *PostgresRepository) CreateGroup(ctx context.Context, group *Group) erro
 	defer tx.Rollback()
 
 	err = tx.QueryRowContext(ctx,
-		`INSERT INTO travel_groups (event_id, name, description, created_by, max_members, departure_date, meeting_point)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`INSERT INTO travel_groups (event_id, name, description, created_by, max_members, departure_date, meeting_point, requires_approval)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		 RETURNING id`,
 		group.EventID, group.Name, group.Description, group.CreatedBy, group.MaxMembers,
-		group.DepartureDate, group.MeetingPoint,
+		group.DepartureDate, group.MeetingPoint, group.RequiresApproval,
 	).Scan(&group.ID)
 	if err != nil {
 		return err
@@ -95,10 +102,10 @@ func (r *PostgresRepository) GetGroup(ctx context.Context, groupID string) (*Gro
 	var g Group
 	err := r.db.QueryRowContext(ctx,
 		`SELECT id, event_id, name, COALESCE(description, ''), created_by, max_members, created_at,
-		        departure_date, COALESCE(meeting_point, '')
+		        departure_date, COALESCE(meeting_point, ''), requires_approval
 		 FROM travel_groups WHERE id = $1`, groupID,
 	).Scan(&g.ID, &g.EventID, &g.Name, &g.Description, &g.CreatedBy, &g.MaxMembers, &g.CreatedAt,
-		&g.DepartureDate, &g.MeetingPoint)
+		&g.DepartureDate, &g.MeetingPoint, &g.RequiresApproval)
 	if err != nil {
 		return nil, err
 	}
@@ -165,39 +172,118 @@ func (r *PostgresRepository) JoinGroup(ctx context.Context, groupID, userID stri
 // JoinGroupChecked performs an atomic capacity check + insert inside a transaction.
 // It locks the travel_groups row with SELECT FOR UPDATE, counts current members,
 // and only inserts if the group is not yet full.
-func (r *PostgresRepository) JoinGroupChecked(ctx context.Context, groupID, userID string) error {
+func (r *PostgresRepository) JoinGroupChecked(ctx context.Context, groupID, userID string) (bool, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+
+	// Retrieve group constraints
+	var maxMembers, memberCount int
+	var requiresApproval bool
+	err = tx.QueryRowContext(ctx,
+		`SELECT g.max_members, g.requires_approval,
+		        (SELECT COUNT(*) FROM group_members WHERE group_id = $1)
+		 FROM travel_groups g WHERE g.id = $1`, groupID,
+	).Scan(&maxMembers, &requiresApproval, &memberCount)
+
+	if err != nil {
+		return false, err
+	}
+
+	if memberCount >= maxMembers {
+		return false, ErrGroupFull
+	}
+
+	if requiresApproval {
+		// Insert into group_join_requests instead
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO group_join_requests (group_id, user_id, status) VALUES ($1, $2, 'pending')
+			 ON CONFLICT (group_id, user_id) DO UPDATE SET status = 'pending'`,
+			groupID, userID,
+		)
+		if err != nil {
+			return false, err
+		}
+		if err = tx.Commit(); err != nil {
+			return false, err
+		}
+		return true, nil // true = created request
+	}
+
+	// Direct Join
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+		groupID, userID,
+	)
+	if err != nil {
+		return false, err
+	}
+
+	var threadID string
+	err = tx.QueryRowContext(ctx, `SELECT id FROM message_threads WHERE group_id = $1 AND type = 'group' LIMIT 1`, groupID).Scan(&threadID)
+	if err == nil {
+		_, _ = tx.ExecContext(ctx,
+			`INSERT INTO thread_participants (thread_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			threadID, userID,
+		)
+	}
+
+	return false, tx.Commit() // false = joined directly
+}
+
+func (r *PostgresRepository) CreateJoinRequest(ctx context.Context, groupID, userID string) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO group_join_requests (group_id, user_id, status) VALUES ($1, $2, 'pending')
+		 ON CONFLICT (group_id, user_id) DO NOTHING`,
+		groupID, userID,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetJoinRequests(ctx context.Context, groupID string) ([]GroupMemberProfile, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT u.id, u.full_name, u.college_name, COALESCE(u.profile_photo_url, ''), r.requested_at
+		 FROM group_join_requests r
+		 JOIN users u ON r.user_id = u.id
+		 WHERE r.group_id = $1 AND r.status = 'pending'
+		 ORDER BY r.requested_at DESC`, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var profiles []GroupMemberProfile
+	for rows.Next() {
+		var p GroupMemberProfile
+		if err := rows.Scan(&p.UserID, &p.FullName, &p.CollegeName, &p.ProfilePhotoURL, &p.JoinedAt); err != nil {
+			return nil, err
+		}
+		profiles = append(profiles, p)
+	}
+	return profiles, nil
+}
+
+func (r *PostgresRepository) AcceptJoinRequest(ctx context.Context, groupID, userID string) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	// Lock the group row to prevent concurrent joins from racing past the capacity check.
-	var maxMembers int
-	if err := tx.QueryRowContext(ctx,
-		`SELECT max_members FROM travel_groups WHERE id = $1 FOR UPDATE`,
-		groupID,
-	).Scan(&maxMembers); err != nil {
+	// Update status
+	res, err := tx.ExecContext(ctx, `UPDATE group_join_requests SET status = 'accepted' WHERE group_id = $1 AND user_id = $2`, groupID, userID)
+	if err != nil {
 		return err
 	}
-
-	var count int
-	if err := tx.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM group_members WHERE group_id = $1`,
-		groupID,
-	).Scan(&count); err != nil {
-		return err
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return errors.New("request not found")
 	}
 
-	if count >= maxMembers {
-		return ErrGroupFull
-	}
-
-	_, err = tx.ExecContext(ctx,
-		`INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)
-		 ON CONFLICT DO NOTHING`,
-		groupID, userID,
-	)
+	// Insert into members
+	_, err = tx.ExecContext(ctx, `INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, groupID, userID)
 	if err != nil {
 		return err
 	}
@@ -205,18 +291,18 @@ func (r *PostgresRepository) JoinGroupChecked(ctx context.Context, groupID, user
 	var threadID string
 	err = tx.QueryRowContext(ctx, `SELECT id FROM message_threads WHERE group_id = $1 AND type = 'group' LIMIT 1`, groupID).Scan(&threadID)
 	if err == nil {
-		_, err = tx.ExecContext(ctx,
-			`INSERT INTO thread_participants (thread_id, user_id) VALUES ($1, $2)
-			 ON CONFLICT DO NOTHING`,
-			threadID, userID)
-		if err != nil {
-			return err
-		}
-	} else if err != sql.ErrNoRows {
-		return err
+		_, _ = tx.ExecContext(ctx,
+			`INSERT INTO thread_participants (thread_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			threadID, userID,
+		)
 	}
 
 	return tx.Commit()
+}
+
+func (r *PostgresRepository) DeclineJoinRequest(ctx context.Context, groupID, userID string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE group_join_requests SET status = 'declined' WHERE group_id = $1 AND user_id = $2`, groupID, userID)
+	return err
 }
 
 func (r *PostgresRepository) GetMemberCount(ctx context.Context, groupID string) (int, error) {

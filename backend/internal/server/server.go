@@ -148,7 +148,7 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 	})))
 
 	// --- Groups routes ---
-	groupsHandler := groups.NewHandler(groupsRepo)
+	groupsHandler := groups.NewHandler(groupsRepo, hub)
 
 	// Protected: suggested groups
 	mux.Handle("/groups/suggested", authMW(http.HandlerFunc(groupsHandler.SuggestedGroups)))

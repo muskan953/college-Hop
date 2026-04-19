@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:college_hop/services/api_service.dart';
 import 'package:college_hop/services/websocket_service.dart';
+
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 /// Manages message threads, messages, WebSocket connection, and FCM tokens.
 class MessageProvider with ChangeNotifier {
@@ -260,6 +263,27 @@ class MessageProvider with ChangeNotifier {
 
       case 'user_typing':
         // Could add typing indicator state here
+        break;
+
+      case 'notification':
+        final payload = data['payload'] as Map<String, dynamic>;
+        final title = payload['title'] as String? ?? 'Notification';
+        final body = payload['body'] as String? ?? '';
+        scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                if (body.isNotEmpty) Text(body),
+              ],
+            ),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.blueAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
         break;
 
       case 'error':

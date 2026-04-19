@@ -4,15 +4,16 @@ import "time"
 
 // Group represents a travel group for an event
 type Group struct {
-	ID            string     `json:"id"`
-	EventID       string     `json:"event_id"`
-	Name          string     `json:"name"`
-	Description   string     `json:"description,omitempty"`
-	CreatedBy     string     `json:"created_by"`
-	MaxMembers    int        `json:"max_members"`
-	CreatedAt     time.Time  `json:"created_at"`
-	DepartureDate *time.Time `json:"departure_date,omitempty"`
-	MeetingPoint  string     `json:"meeting_point,omitempty"`
+	ID               string     `json:"id"`
+	EventID          string     `json:"event_id"`
+	Name             string     `json:"name"`
+	Description      string     `json:"description,omitempty"`
+	CreatedBy        string     `json:"created_by"`
+	MaxMembers       int        `json:"max_members"`
+	CreatedAt        time.Time  `json:"created_at"`
+	DepartureDate    *time.Time `json:"departure_date,omitempty"`
+	MeetingPoint     string     `json:"meeting_point,omitempty"`
+	RequiresApproval bool       `json:"requires_approval"`
 }
 
 // GroupWithDetails includes member count and match info for API responses
@@ -26,12 +27,13 @@ type GroupWithDetails struct {
 
 // CreateGroupRequest is the payload for POST /groups
 type CreateGroupRequest struct {
-	EventID       string     `json:"event_id"`
-	Name          string     `json:"name"`
-	Description   string     `json:"description"`
-	MaxMembers    int        `json:"max_members"`
-	DepartureDate *time.Time `json:"departure_date,omitempty"`
-	MeetingPoint  string     `json:"meeting_point,omitempty"`
+	EventID          string     `json:"event_id"`
+	Name             string     `json:"name"`
+	Description      string     `json:"description"`
+	MaxMembers       int        `json:"max_members"`
+	DepartureDate    *time.Time `json:"departure_date,omitempty"`
+	MeetingPoint     string     `json:"meeting_point,omitempty"`
+	RequiresApproval bool       `json:"requires_approval"`
 }
 
 // GroupMember represents a member in a travel group

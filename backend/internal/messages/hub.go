@@ -55,9 +55,12 @@ func (h *Hub) Run() {
 		case client := <-h.register:
 			h.mu.Lock()
 			wasOnline := false
-			// Close existing connection for same user (single-device)
+			// Close existing connection for same user (single-device).
+			// We close the underlying conn directly (NOT the send channel) so
+			// that writePump exits without sending a WS CloseMessage — which
+			// would trigger a spurious reconnect loop on the Flutter client.
 			if existing, ok := h.clients[client.userID]; ok {
-				close(existing.send)
+				existing.conn.Close() // close TCP, writePump exits on next write
 				delete(h.clients, client.userID)
 				wasOnline = true
 			}
@@ -167,7 +170,7 @@ func (h *Hub) handleMessage(ctx context.Context, bMsg *broadcastMsg) {
 	}
 
 	// Send confirmation to sender
-	h.sendToUser(senderID, WSOutgoing{
+	h.SendToUser(senderID, WSOutgoing{
 		Type:    "message_sent",
 		Payload: WSMessageSent{MessageID: msg.ID, ThreadID: msg.ThreadID},
 	})
@@ -182,7 +185,7 @@ func (h *Hub) handleMessage(ctx context.Context, bMsg *broadcastMsg) {
 			continue
 		}
 		if h.IsOnline(pid) {
-			h.sendToUser(pid, newMsgPayload)
+			h.SendToUser(pid, newMsgPayload)
 		} else {
 			// User is offline — send push notification
 			go h.sendPushNotification(ctx, pid, msg)
@@ -214,12 +217,12 @@ func (h *Hub) handleTyping(ctx context.Context, bMsg *broadcastMsg) {
 		if pid == senderID {
 			continue
 		}
-		h.sendToUser(pid, typing)
+		h.SendToUser(pid, typing)
 	}
 }
 
-// sendToUser sends a WSOutgoing message to a specific user if they're online.
-func (h *Hub) sendToUser(userID string, msg WSOutgoing) {
+// SendToUser sends a WSOutgoing message to a specific user if they're online.
+func (h *Hub) SendToUser(userID string, msg WSOutgoing) {
 	h.mu.RLock()
 	client, ok := h.clients[userID]
 	h.mu.RUnlock()
@@ -243,7 +246,7 @@ func (h *Hub) sendToUser(userID string, msg WSOutgoing) {
 
 // sendError sends an error message to a specific user.
 func (h *Hub) sendError(userID string, errMsg string) {
-	h.sendToUser(userID, WSOutgoing{
+	h.SendToUser(userID, WSOutgoing{
 		Type:    "error",
 		Payload: map[string]string{"message": errMsg},
 	})
@@ -275,6 +278,32 @@ func (h *Hub) sendPushNotification(ctx context.Context, userID string, msg Messa
 	h.notifier.SendToMany(ctx, tokens, msg.SenderName, body, data)
 }
 
+// SendNotification dispatches an alert via WebSocket (for in-app UI) AND FCM (for system drops).
+func (h *Hub) SendNotification(ctx context.Context, userID, title, body string, data map[string]string) {
+	// 1. Unconditionally dispatch raw FCM to guarantee background delivery
+	if h.notifier != nil {
+		tokens, err := h.repo.GetDeviceTokens(ctx, userID)
+		if err == nil && len(tokens) > 0 {
+			h.notifier.SendToMany(ctx, tokens, title, body, data)
+		}
+	}
+
+	// 2. Unconditionally drop a WebSocket event to show immediate active foreground UI
+	if h.IsOnline(userID) {
+		payload := map[string]string{
+			"title": title,
+			"body":  body,
+		}
+		for k, v := range data {
+			payload[k] = v // merge custom data
+		}
+		h.SendToUser(userID, WSOutgoing{
+			Type:    "notification",
+			Payload: payload,
+		})
+	}
+}
+
 // BroadcastMessageDeleted notifies thread participants that a message was deleted.
 func (h *Hub) BroadcastMessageDeleted(ctx context.Context, threadID, messageID string) {
 	participants, err := h.repo.GetParticipantIDs(ctx, threadID)
@@ -291,7 +320,7 @@ func (h *Hub) BroadcastMessageDeleted(ctx context.Context, threadID, messageID s
 	}
 
 	for _, pid := range participants {
-		h.sendToUser(pid, payload)
+		h.SendToUser(pid, payload)
 	}
 }
 
@@ -321,7 +350,7 @@ func (h *Hub) BroadcastUserPresence(userID string, isOnline bool) {
 		for _, pid := range pids {
 			if !notified[pid] {
 				notified[pid] = true
-				h.sendToUser(pid, payload)
+				h.SendToUser(pid, payload)
 			}
 		}
 	}

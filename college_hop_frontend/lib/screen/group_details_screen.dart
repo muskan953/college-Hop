@@ -8,6 +8,7 @@ import 'package:college_hop/providers/auth_provider.dart';
 import 'package:college_hop/providers/profile_provider.dart';
 import 'package:college_hop/services/api_service.dart';
 import 'package:college_hop/screen/messages_screen.dart';
+import 'package:college_hop/screen/manage_requests_screen.dart';
 
 class GroupDetailsScreen extends StatefulWidget {
   final String groupId;
@@ -98,6 +99,9 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
         setState(() { _isJoining = false; });
         await _showSuccessOverlay();
         await _fetchGroupDetails();
+      } else if (res.statusCode == 202) {
+        setState(() { _isJoining = false; });
+        messenger.showSnackBar(const SnackBar(content: Text('Join request sent! Waiting for approval.')));
       } else {
         setState(() => _isJoining = false);
         final msg = res.body.trim().isNotEmpty ? res.body.trim() : 'Could not join group.';
@@ -306,10 +310,23 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
               const SizedBox(height: 24),
 
               // ── Group name & student count ────────────────────────────────
-              Text(
-                groupName,
-                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (data['requires_approval'] == true)
+                    Icon(Icons.lock_outline, size: 20, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                  if (data['requires_approval'] == true)
+                    const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      groupName,
+                      style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 6),
               Text(
@@ -441,6 +458,27 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                                 : const Text('Leave', style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
+                        if (data['created_by'] == context.read<AuthProvider>().userId) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 1,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => ManageRequestsScreen(groupId: widget.groupId)),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: theme.colorScheme.secondaryContainer,
+                                foregroundColor: theme.colorScheme.onSecondaryContainer,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Icon(Icons.admin_panel_settings, size: 20),
+                            ),
+                          ),
+                        ],
                       ],
                     )
                   : ElevatedButton.icon(
@@ -452,7 +490,9 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                               child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                           : const Icon(Icons.group_add_outlined, size: 20),
                       label: Text(
-                        _isJoining ? 'Joining...' : 'Join Group',
+                        _isJoining
+                            ? 'Processing...'
+                            : (data['requires_approval'] == true ? 'Request to Join' : 'Join Group'),
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       style: ElevatedButton.styleFrom(

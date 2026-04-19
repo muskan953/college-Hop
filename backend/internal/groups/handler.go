@@ -8,16 +8,18 @@ import (
 	"strings"
 
 	"github.com/muskan953/college-Hop/internal/auth"
+	"github.com/muskan953/college-Hop/internal/messages"
 )
 
 const DefaultThreshold = 0.1 // Minimum Jaccard score to keep a group
 
 type Handler struct {
 	repo Repository
+	hub  *messages.Hub
 }
 
-func NewHandler(repo Repository) *Handler {
-	return &Handler{repo: repo}
+func NewHandler(repo Repository, hub *messages.Hub) *Handler {
+	return &Handler{repo: repo, hub: hub}
 }
 
 // POST /groups — Create a new travel group
@@ -55,9 +57,10 @@ func (h *Handler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		Name:          req.Name,
 		Description:   strings.TrimSpace(req.Description),
 		CreatedBy:     user.ID,
-		MaxMembers:    maxMembers,
-		DepartureDate: req.DepartureDate,
-		MeetingPoint:  strings.TrimSpace(req.MeetingPoint),
+		MaxMembers:       maxMembers,
+		DepartureDate:    req.DepartureDate,
+		MeetingPoint:     strings.TrimSpace(req.MeetingPoint),
+		RequiresApproval: req.RequiresApproval,
 	}
 
 	if err := h.repo.CreateGroup(r.Context(), group); err != nil {
@@ -103,18 +106,124 @@ func (h *Handler) JoinGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// JoinGroupChecked atomically checks capacity and inserts — no race condition.
-	if err := h.repo.JoinGroupChecked(r.Context(), groupID, user.ID); err != nil {
+	if createdRequest, err := h.repo.JoinGroupChecked(r.Context(), groupID, user.ID); err != nil {
 		if errors.Is(err, ErrGroupFull) {
 			http.Error(w, "group is full", http.StatusBadRequest)
 			return
 		}
 		http.Error(w, "failed to join group", http.StatusInternalServerError)
 		return
+	} else if createdRequest {
+		// NOTIFY THE CREATOR!
+		group, _ := h.repo.GetGroup(r.Context(), groupID) // To get Creator ID
+		if group != nil {
+			h.hub.SendNotification(r.Context(), group.CreatedBy, "New Join Request", "Someone requested to join "+group.Name, map[string]string{"type": "notification", "group_id": groupID})
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(map[string]string{"message": "request to join sent"})
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "joined group"})
+}
+
+// GET /groups/{id}/requests — Get pending join requests
+func (h *Handler) GetJoinRequests(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/"), "/")
+	if len(parts) < 3 {
+		http.Error(w, "invalid URL", http.StatusBadRequest)
+		return
+	}
+	groupID := parts[1]
+
+	group, err := h.repo.GetGroup(r.Context(), groupID)
+	if err != nil {
+		http.Error(w, "group not found", http.StatusNotFound)
+		return
+	}
+	if group.CreatedBy != user.ID {
+		http.Error(w, "forbidden: must be creator to view requests", http.StatusForbidden)
+		return
+	}
+
+	requests, err := h.repo.GetJoinRequests(r.Context(), groupID)
+	if err != nil {
+		http.Error(w, "failed to get requests", http.StatusInternalServerError)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(requests)
+}
+
+// POST /groups/{id}/requests/{userId}/accept
+func (h *Handler) AcceptRequest(w http.ResponseWriter, r *http.Request) {
+	h.handleRequestAction(w, r, "accept")
+}
+
+// POST /groups/{id}/requests/{userId}/decline
+func (h *Handler) DeclineRequest(w http.ResponseWriter, r *http.Request) {
+	h.handleRequestAction(w, r, "decline")
+}
+
+func (h *Handler) handleRequestAction(w http.ResponseWriter, r *http.Request, action string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/"), "/")
+	if len(parts) < 5 { // groups/{id}/requests/{userId}/accept
+		http.Error(w, "invalid URL", http.StatusBadRequest)
+		return
+	}
+	groupID := parts[1]
+	targetUserID := parts[3]
+
+	group, err := h.repo.GetGroup(r.Context(), groupID)
+	if err != nil {
+		http.Error(w, "group not found", http.StatusNotFound)
+		return
+	}
+	if group.CreatedBy != user.ID {
+		http.Error(w, "forbidden: must be creator to manage requests", http.StatusForbidden)
+		return
+	}
+
+	if action == "accept" {
+		err = h.repo.AcceptJoinRequest(r.Context(), groupID, targetUserID)
+		if err == nil {
+			h.hub.SendNotification(r.Context(), targetUserID, "Request Accepted!", "You've been added to "+group.Name, map[string]string{"type": "notification", "group_id": groupID})
+		}
+	} else {
+		err = h.repo.DeclineJoinRequest(r.Context(), groupID, targetUserID)
+	}
+
+	if err != nil {
+		http.Error(w, "failed to process request", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "request " + action + "ed"})
 }
 
 // GET /groups/suggested?event_id=xxx — Get suggested groups with matching

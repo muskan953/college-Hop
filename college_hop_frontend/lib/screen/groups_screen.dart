@@ -9,6 +9,7 @@ import 'package:college_hop/services/api_service.dart';
 import 'package:college_hop/screen/group_details_screen.dart';
 import 'package:college_hop/providers/profile_provider.dart';
 import 'package:college_hop/widgets/custom_app_bar.dart';
+import 'package:college_hop/screen/create_group_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  GROUPS SCREEN
@@ -197,6 +198,20 @@ class _GroupsScreenState extends State<GroupsScreen> {
             // ── Body ─────────────────────────────────────────────────────────
             Expanded(child: _buildBody(theme)),
           ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final res = await Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const CreateGroupScreen()),
+          );
+          if (res == true) {
+            _fetchGroups();
+          }
+        },
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Create Group', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }

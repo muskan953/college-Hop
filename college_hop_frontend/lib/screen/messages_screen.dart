@@ -148,8 +148,9 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
       if (mounted && event['type'] == 'new_message') _refreshThreads();
     });
 
-    // Poll thread list every 4 seconds for live last-message updates ONLY if disconnected
-    _threadPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    // Poll thread list every 30 seconds as fallback ONLY if WS is disconnected.
+    // (WS handles real-time updates; polling is a safety net for edge cases only)
+    _threadPollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       final isConnected = context.read<MessageProvider>().isConnected;
       if (!isConnected) {
         _refreshThreads();
