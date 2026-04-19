@@ -56,9 +56,9 @@ func (r *PostgresRepository) GetOrCreateDirectThread(ctx context.Context, userID
 		FROM message_threads mt
 		JOIN thread_participants tp1 ON tp1.thread_id = mt.id AND tp1.user_id = $1
 		JOIN thread_participants tp2 ON tp2.thread_id = mt.id AND tp2.user_id = $2
-		WHERE mt.type = 'direct'
+		WHERE mt.type = 'direct' AND mt.is_request = $3
 		LIMIT 1
-	`, userID1, userID2).Scan(&t.ID, &t.Type, &t.GroupID, &t.CreatedAt, &t.IsRequest, &t.RequestMessageCount)
+	`, userID1, userID2, isRequest).Scan(&t.ID, &t.Type, &t.GroupID, &t.CreatedAt, &t.IsRequest, &t.RequestMessageCount)
 
 	if err == nil {
 		return t, nil // existing thread found

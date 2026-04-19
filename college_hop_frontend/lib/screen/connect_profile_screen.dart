@@ -19,6 +19,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
   String? _sentMessage;
   bool _isConnecting = false;
   bool _hasConnected = false;
+  bool _isFullyConnected = false;
   
   Map<String, dynamic>? _fullProfile;
   bool _isLoadingProfile = true;
@@ -50,12 +51,16 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
       }
       
       bool hasConnected = _hasConnected;
+      bool isFullyConnected = _isFullyConnected;
       String? sentMsg = _sentMessage;
       if (threadsRes.statusCode == 200) {
         final List<dynamic> threads = jsonDecode(threadsRes.body);
         for (var t in threads) {
-          if (t['other_user_id'] == userId && t['is_request'] == true && t['is_requester'] == true) {
+          if (t['other_user_id'] == userId) {
             hasConnected = true;
+            if (t['is_request'] == false) {
+              isFullyConnected = true;
+            }
             sentMsg = t['last_message'];
             break;
           }
@@ -66,6 +71,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
         setState(() {
           if (fetchedProfile != null) _fullProfile = fetchedProfile;
           _hasConnected = hasConnected;
+          _isFullyConnected = isFullyConnected;
           if (sentMsg != null) _sentMessage = sentMsg;
           _isLoadingProfile = false;
         });
@@ -349,7 +355,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
                     _showSendMessageBottomSheet(context, theme, textTheme, colorScheme, fullName, firstName, match['user_id']);
                   },
                   icon: Icon(_hasConnected ? Icons.check_circle : Icons.person_add_alt_1, color: Colors.white, size: 20),
-                  label: Text(_hasConnected ? "Request Pending" : "Connect", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  label: Text(_isFullyConnected ? "Connected" : _hasConnected ? "Request Pending" : "Connect", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _hasConnected ? Colors.grey : colorScheme.primary,
                     padding: const EdgeInsets.symmetric(vertical: 14),

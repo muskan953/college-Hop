@@ -16,6 +16,11 @@ class MessageProvider with ChangeNotifier {
   List<Map<String, dynamic>> threads = [];
   bool isLoadingThreads = false;
 
+  /// True if the user has any incoming connection requests pending
+  bool get hasPendingRequests {
+    return threads.any((t) => t['is_request'] == true && t['is_requester'] != true);
+  }
+
   // Active chat state
   String? activeThreadId;
   List<Map<String, dynamic>> messages = [];
@@ -29,8 +34,17 @@ class MessageProvider with ChangeNotifier {
 
   /// Connect WebSocket and register FCM token.
   Future<void> init(String token) async {
-    // Prevent duplicate initialization on screen revisits
+    // Prevent re-init if already connected (even with a new token).
+    // The WS is authenticated only at connection time, so a token refresh
+    // must NOT create a new WS connection — that would kill the existing one
+    // in the Hub and trigger a reconnect loop.
+    if (_initialized && _ws.isConnected) {
+      _currentToken = token; // Always keep the token current for HTTP calls
+      return;
+    }
+
     if (_initialized && _currentToken == token) return;
+
     _initialized = true;
     _currentToken = token;
 
@@ -41,6 +55,13 @@ class MessageProvider with ChangeNotifier {
 
     // Register FCM device token
     _registerFCMToken(token);
+  }
+
+  /// Load threads only if they haven't been loaded yet (lazy load for non-Messages screens).
+  Future<void> loadThreadsIfNeeded(String token) async {
+    _currentToken ??= token;
+    if (threads.isNotEmpty || isLoadingThreads) return;
+    await loadThreads();
   }
 
   /// Load all threads from the server.

@@ -26,6 +26,8 @@ class _MyEventState extends State<MyEvent> {
   // ── State ──
   String? _currentEventId;
   bool _loading = false;
+  bool _refreshCoolingDown = false;
+  DateTime? _lastRefresh;
   String? _error;
   List<Map<String, dynamic>> _suggestedGroups = [];
   List<Map<String, dynamic>> _bestMatches = [];
@@ -41,11 +43,34 @@ class _MyEventState extends State<MyEvent> {
   }
 
   Future<void> _fetchDashboardData(String eventId) async {
-    if (_loading) return; // Prevent spamming
-    
+    if (_loading) return; // Prevent concurrent fetches
+
+    // 30-second cooldown to prevent spamming
+    final now = DateTime.now();
+    if (_lastRefresh != null && now.difference(_lastRefresh!).inSeconds < 30) {
+      final remaining = 30 - now.difference(_lastRefresh!).inSeconds;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Please wait ${remaining}s before refreshing again'),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    _lastRefresh = now;
     setState(() {
       _loading = true;
+      _refreshCoolingDown = true;
       _error = null;
+    });
+
+    // Release the visual cooldown lock after 30s
+    Future.delayed(const Duration(seconds: 30), () {
+      if (mounted) setState(() => _refreshCoolingDown = false);
     });
 
     final token = context.read<AuthProvider>().accessToken;
@@ -253,44 +278,26 @@ class _MyEventState extends State<MyEvent> {
       title: "Find Travel Buddies",
       actions: [
         if (_currentEventId != null)
-          IconButton(
-            onPressed: () => _fetchDashboardData(_currentEventId!),
-            icon: Icon(
-              Icons.refresh,
-              color: theme.colorScheme.onSurface,
-              size: 24,
-            ),
-          ),
-        Stack(
-          children: [
-            IconButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const NotificationsScreen(),
+          _refreshCoolingDown
+              ? Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
                   ),
-                );
-              },
-              icon: Icon(
-                Icons.notifications_outlined,
-                color: theme.colorScheme.onSurface,
-                size: 26,
-              ),
-            ),
-            Positioned(
-              right: 10,
-              top: 10,
-              child: Container(
-                width: 9,
-                height: 9,
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
+                )
+              : IconButton(
+                  onPressed: () => _fetchDashboardData(_currentEventId!),
+                  icon: Icon(
+                    Icons.refresh,
+                    color: theme.colorScheme.onSurface,
+                    size: 24,
+                  ),
                 ),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }

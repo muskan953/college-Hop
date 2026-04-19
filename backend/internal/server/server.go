@@ -231,6 +231,10 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 			msgHandler.ClearThread(w, r)
 		case strings.HasSuffix(path, "/read") && r.Method == http.MethodPost:
 			msgHandler.HandleMarkRead(w, r)
+		case strings.HasSuffix(path, "/accept") && r.Method == http.MethodPost:
+			msgHandler.AcceptRequest(w, r)
+		case strings.HasSuffix(path, "/decline") && r.Method == http.MethodPost:
+			msgHandler.DeclineRequest(w, r)
 		case r.Method == http.MethodGet:
 			msgHandler.GetMessages(w, r)
 		case r.Method == http.MethodDelete:

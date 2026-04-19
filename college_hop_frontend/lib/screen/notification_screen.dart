@@ -1,4 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:college_hop/providers/auth_provider.dart';
+import 'package:college_hop/providers/message_provider.dart';
+import 'package:college_hop/providers/profile_provider.dart';
+import 'package:college_hop/services/api_service.dart';
 import 'package:college_hop/theme/app_scaffold.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -11,43 +17,138 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
-
-  final List<Map<String, dynamic>> _notifications = [
-    {
-      "title": "New Match Found!",
-      "message":
-          "Ananya Singh is also going to Hackathon @ IIT Delhi. She shares 2 interests with you!",
-      "time": "2m ago",
-      "type": NotificationType.match,
-      "isUnread": true,
-    },
-    {
-      "title": "Travel Group Invite",
-      "message": "Rahul Patel invited you to join IIT Delhi Carpool.",
-      "time": "15m ago",
-      "type": NotificationType.invite,
-      "isUnread": true,
-    },
-    {
-      "title": "Message from Priya",
-      "message": "Hey! Are you still looking for a ride to the venue?",
-      "time": "1h ago",
-      "type": NotificationType.message,
-      "isUnread": false,
-    },
-    {
-      "title": "New Event Suggestion",
-      "message": "AI Conference @ IIT Madras matches your interests.",
-      "time": "3h ago",
-      "type": NotificationType.match,
-      "isUnread": true,
-    },
-  ];
+  
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _notifications = [];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _fetchNotifications();
+  }
+
+  Future<void> _fetchNotifications() async {
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final res = await ApiService.getThreads(token);
+      if (mounted) {
+        if (res.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(res.body);
+          
+          // Filter incoming requests:
+          // is_request must be true AND the current user must NOT be the requester
+          // Note: is_requester can be null when there's no connection row yet,
+          // so we check != true (null != true is true, meaning it passes as incoming)
+          final incomingRequests = data.where((t) =>
+            t['is_request'] == true && t['is_requester'] != true
+          ).toList();
+
+          final updatedList = incomingRequests.map((t) {
+            final senderName = t['other_user_name'] ?? 'Someone';
+            return {
+              "id": t['id'],
+              "title": "Connection Request",
+              "message": "$senderName would like to connect with you.",
+              "time": _formatTime(t['last_message_at'] ?? t['updated_at'] ?? t['created_at'] ?? ''),
+              "type": NotificationType.invite,
+              "isUnread": true,
+              "threadId": t['id'],
+            };
+          }).toList();
+
+          setState(() {
+            _notifications = updatedList;
+            _isLoading = false;
+          });
+        } else {
+          // API error — stop loading and show empty state
+          setState(() => _isLoading = false);
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  String _formatTime(String isoTime) {
+    if (isoTime.isEmpty) return 'Just now';
+    try {
+      final dt = DateTime.parse(isoTime);
+      final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      return '${diff.inDays}d ago';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<void> _handleAccept(String threadId, int index) async {
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) return;
+
+    try {
+      final res = await ApiService.acceptRequest(token, threadId);
+      if (!mounted) return;
+
+      if (res.statusCode == 200) {
+        // Remove from notifications list
+        setState(() => _notifications.removeAt(index));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Connection accepted! 🎉'), backgroundColor: Colors.green),
+        );
+        // Force reload threads so Messages tab and bell red dot update immediately
+        final msgProvider = context.read<MessageProvider>();
+        msgProvider.threads = []; // reset so loadThreadsIfNeeded re-fetches
+        await msgProvider.loadThreadsIfNeeded(token);
+        context.read<ProfileProvider>().fetchProfile(token);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to accept: ${res.statusCode}'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleDecline(String threadId, int index) async {
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) return;
+
+    try {
+      final res = await ApiService.declineRequest(token, threadId);
+      if (!mounted) return;
+
+      if (res.statusCode == 200) {
+        setState(() => _notifications.removeAt(index));
+        // Force reload threads so bell red dot updates
+        final msgProvider = context.read<MessageProvider>();
+        msgProvider.threads = [];
+        await msgProvider.loadThreadsIfNeeded(token);
+        context.read<ProfileProvider>().fetchProfile(token);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to decline: ${res.statusCode}'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   @override
@@ -62,16 +163,18 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             _buildTabBar(theme),
 
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildNotificationList(theme, _notifications),
-                  _buildNotificationList(
-                    theme,
-                    _notifications.where((n) => n["isUnread"] == true).toList(),
+              child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildNotificationList(theme, _notifications),
+                      _buildNotificationList(
+                        theme,
+                        _notifications.where((n) => n["isUnread"] == true).toList(),
+                      ),
+                    ],
                   ),
-                ],
-              ),
             ),
           ],
         ),
@@ -175,6 +278,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             time: n["time"],
             type: n["type"],
             isUnread: n["isUnread"],
+            onAccept: () => _handleAccept(n["threadId"], index),
+            onDecline: () => _handleDecline(n["threadId"], index),
           ),
         );
       },
@@ -207,6 +312,8 @@ class _NotificationCard extends StatelessWidget {
   final String time;
   final NotificationType type;
   final bool isUnread;
+  final VoidCallback? onAccept;
+  final VoidCallback? onDecline;
 
   const _NotificationCard({
     required this.theme,
@@ -215,6 +322,8 @@ class _NotificationCard extends StatelessWidget {
     required this.time,
     required this.type,
     required this.isUnread,
+    this.onAccept,
+    this.onDecline,
   });
 
   @override
@@ -275,13 +384,13 @@ class _NotificationCard extends StatelessWidget {
               type == NotificationType.invite) ...[
             const SizedBox(height: 12),
             if (type == NotificationType.match)
-              _primaryButton("View Profile", colors)
+              _primaryButton("View Profile", colors, null)
             else
               Row(
                 children: [
-                  Expanded(child: _primaryButton("Accept", colors)),
+                  Expanded(child: _primaryButton("Accept", colors, onAccept)),
                   const SizedBox(width: 10),
-                  Expanded(child: _secondaryButton("Decline", colors)),
+                  Expanded(child: _secondaryButton("Decline", colors, onDecline)),
                 ],
               )
           ]
@@ -313,11 +422,11 @@ class _NotificationCard extends StatelessWidget {
     );
   }
 
-  Widget _primaryButton(String text, ColorScheme colors) {
+  Widget _primaryButton(String text, ColorScheme colors, VoidCallback? onPressed) {
     return SizedBox(
       height: 36,
       child: ElevatedButton(
-        onPressed: () {},
+        onPressed: onPressed ?? () {},
         style: ElevatedButton.styleFrom(
           backgroundColor: colors.primary,
           foregroundColor: Colors.white,
@@ -330,11 +439,11 @@ class _NotificationCard extends StatelessWidget {
     );
   }
 
-  Widget _secondaryButton(String text, ColorScheme colors) {
+  Widget _secondaryButton(String text, ColorScheme colors, VoidCallback? onPressed) {
     return SizedBox(
       height: 36,
       child: OutlinedButton(
-        onPressed: () {},
+        onPressed: onPressed ?? () {},
         style: OutlinedButton.styleFrom(
           side: BorderSide(color: colors.outline.withValues(alpha: 0.3)),
           shape:

@@ -260,7 +260,7 @@ func (r *PostgresRepository) GetProfile(ctx context.Context, userID string) (*Pr
 
 	// Count confirmed connections
 	err = r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM connections WHERE (user_id_1 = $1 OR user_id_2 = $1) AND status = 'connected'`, userID,
+		`SELECT COUNT(DISTINCT CASE WHEN user_id_1 = $1 THEN user_id_2 ELSE user_id_1 END) FROM connections WHERE (user_id_1 = $1 OR user_id_2 = $1) AND status = 'connected'`, userID,
 	).Scan(&profile.ConnectionsCount)
 	if err != nil {
 		profile.ConnectionsCount = 0

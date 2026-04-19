@@ -145,17 +145,23 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
             : (t['name'] as String? ?? t['thread_type'] as String? ?? 'Chat');
         final lastMsg = t['last_message'] ?? '';
         final isGroup = (t['thread_type'] ?? t['type']) == 'group';
+        final isRequest = t['is_request'] == true;
+        final type = isRequest
+            ? _ChatType.request
+            : (isGroup ? _ChatType.group : _ChatType.direct);
         return _ChatThread(
           id: t['id'] ?? '',
           name: name,
           lastMessage: lastMsg,
-          time: _formatTime(t['last_message_at'] ?? ''),
+          time: _formatTime(t['last_message_at'] ?? t['updated_at'] ?? ''),
           avatarColor: _colorFromId(t['id'] ?? ''),
           avatarLabel: name.isNotEmpty ? name[0].toUpperCase() : '?',
-          type: isGroup ? _ChatType.group : _ChatType.direct,
+          type: type,
           otherUserId: t['other_user_id'] as String?,
           unreadCount: t['unread_count'] as int? ?? 0,
           isOnline: t['is_online'] == true,
+          isRequester: t['is_requester'] == true,
+          requestMessageCount: t['request_message_count'] as int? ?? 0,
         );
       }).toList();
       if (mounted) setState(() => _threads = updated);
@@ -324,14 +330,12 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
         }
       }
 
-      // Only show mocks if NOTHING was returned at all
+      // Only show mocks if NOTHING was returned at all (network error state)
       if (_threads.isEmpty && _connections.isEmpty) {
         _threads = List.from(_mockThreads);
         _connections = List.from(_mockConnections);
-      } else if (_connections.isEmpty) {
-        // Keep connections mock if real ones aren't available yet
-        _connections = List.from(_mockConnections);
       }
+      // Note: if connections is empty but threads exist, just show empty connections row
 
       setState(() => _loading = false);
     } catch (_) {
@@ -427,18 +431,24 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
 
   List<_ChatThread> _filtered(_ChatType? typeFilter) {
     return _threads.where((t) {
-      // Exclude incoming requests from 'All'
-      if (typeFilter == null && t.type == _ChatType.request && !t.isRequester) return false;
-      
-      final matchesType = typeFilter == null || 
-                          t.type == typeFilter || 
-                          (typeFilter == _ChatType.direct && t.type == _ChatType.request && t.isRequester) ||
-                          (typeFilter == _ChatType.request && t.type == _ChatType.request && !t.isRequester); // Only incoming for Requests tab
+      final bool matchesType;
+      if (typeFilter == null) {
+        // All tab: show every thread (direct, group, and all requests)
+        matchesType = true;
+      } else if (typeFilter == _ChatType.direct) {
+        // Direct: ONLY confirmed (non-request) direct chats
+        matchesType = t.type == _ChatType.direct;
+      } else if (typeFilter == _ChatType.group) {
+        matchesType = t.type == _ChatType.group;
+      } else {
+        // Requests tab: ALL request threads (both incoming and outgoing)
+        matchesType = t.type == _ChatType.request;
+      }
 
       final matchesQuery = _query.isEmpty ||
           t.name.toLowerCase().contains(_query.toLowerCase()) ||
           t.lastMessage.toLowerCase().contains(_query.toLowerCase());
-          
+
       return matchesType && matchesQuery;
     }).toList();
   }
@@ -446,10 +456,10 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final allCount = _threads.where((t) => !(t.type == _ChatType.request && !t.isRequester)).length;
-    final directCount = _threads.where((t) => t.type == _ChatType.direct || (t.type == _ChatType.request && t.isRequester)).length;
+    final allCount = _threads.length;
+    final directCount = _threads.where((t) => t.type == _ChatType.direct).length;
     final groupCount = _threads.where((t) => t.type == _ChatType.group).length;
-    final requestCount = _threads.where((t) => t.type == _ChatType.request && !t.isRequester).length;
+    final requestCount = _threads.where((t) => t.type == _ChatType.request).length;
 
     return AppScaffold(
       body: Column(
@@ -457,31 +467,6 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
           // ── App Bar ──────────────────────────────────────────────────────
           CustomAppBar(
             title: 'Messages',
-            actions: [
-              Stack(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-                    ),
-                    icon: Icon(Icons.notifications_outlined, color: theme.colorScheme.onSurface, size: 26),
-                  ),
-                  Positioned(
-                    right: 6,
-                    top: 6,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.error,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: theme.scaffoldBackgroundColor, width: 2),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ),
           if (_loading) 
             const Expanded(child: Center(child: CircularProgressIndicator()))
@@ -816,6 +801,17 @@ class _ThreadTile extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: const Text('Active', style: TextStyle(color: Color(0xFFFF7043), fontSize: 9, fontWeight: FontWeight.w700)),
+                              ),
+                            ],
+                            if (thread.isRequester) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFB300).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text('Pending', style: TextStyle(color: Color(0xFFFFB300), fontSize: 9, fontWeight: FontWeight.w700)),
                               ),
                             ],
                           ],
