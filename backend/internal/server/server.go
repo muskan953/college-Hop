@@ -179,6 +179,12 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 			groupsHandler.LeaveGroup(w, r)
 		case strings.HasSuffix(path, "/kick") && r.Method == http.MethodPost:
 			groupsHandler.KickMember(w, r)
+		case strings.HasSuffix(path, "/accept") && r.Method == http.MethodPost:
+			groupsHandler.AcceptRequest(w, r)
+		case strings.HasSuffix(path, "/decline") && r.Method == http.MethodPost:
+			groupsHandler.DeclineRequest(w, r)
+		case strings.HasSuffix(path, "/requests") && r.Method == http.MethodGet:
+			groupsHandler.GetJoinRequests(w, r)
 		case r.Method == http.MethodGet:
 			groupsHandler.GetGroup(w, r)
 		case r.Method == http.MethodPut:
