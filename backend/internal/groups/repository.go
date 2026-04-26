@@ -244,9 +244,9 @@ func (r *PostgresRepository) CreateJoinRequest(ctx context.Context, groupID, use
 
 func (r *PostgresRepository) GetJoinRequests(ctx context.Context, groupID string) ([]GroupMemberProfile, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT u.id, u.full_name, u.college_name, COALESCE(u.profile_photo_url, ''), r.requested_at
+		`SELECT r.user_id, p.full_name, p.college_name, COALESCE(p.profile_photo_url, ''), r.requested_at
 		 FROM group_join_requests r
-		 JOIN users u ON r.user_id = u.id
+		 JOIN profiles p ON r.user_id = p.user_id
 		 WHERE r.group_id = $1 AND r.status = 'pending'
 		 ORDER BY r.requested_at DESC`, groupID)
 	if err != nil {

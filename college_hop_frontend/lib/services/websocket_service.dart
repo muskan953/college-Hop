@@ -173,8 +173,17 @@ class WebSocketService {
     );
     debugPrint('[WS] Reconnecting in ${delay.inSeconds}s (attempt $_reconnectAttempts)');
 
+    // Capture the generation at schedule time. If a newer connection has
+    // already been established by the time this timer fires, skip — otherwise
+    // we'd kill the healthy connection and create a ping-pong loop.
+    final scheduledGen = _generation;
+
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(delay, () {
+      if (_generation != scheduledGen) {
+        debugPrint('[WS] Skipping stale reconnect (gen $scheduledGen, current $_generation)');
+        return;
+      }
       // Use the getter to pick up a potentially refreshed token.
       final freshToken = _getToken?.call() ?? _currentToken;
       if (freshToken == null) {
