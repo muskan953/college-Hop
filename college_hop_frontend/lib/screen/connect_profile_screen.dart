@@ -99,7 +99,7 @@ class _ConnectProfileScreenState extends State<ConnectProfileScreen> {
     final String college = match['college_name'] ?? '';
     final String profilePhotoUrl = match['profile_photo_url'] ?? '';
     final List<String> sharedInterests = (match['common_interests'] as List<dynamic>?)?.cast<String>() ?? [];
-    final double matchScore = match['match_score'] ?? 0.0;
+    final double matchScore = (match['match_score'] as num?)?.toDouble() ?? 0.0;
     final int matchPercent = (matchScore * 100).round();
     
     final hue = (fullName.hashCode % 360).abs().toDouble();
