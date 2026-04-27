@@ -161,5 +161,62 @@ func TestAuthLogout(t *testing.T) {
 	}
 }
 
+// TestAuthSignup_OTPRateLimit verifies that when CanRequestOTP returns false
+// the handler responds with 429 Too Many Requests.
+func TestAuthSignup_OTPRateLimit(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+	mockAuthRepo := &MockAuthRepository{
+		CanRequestOTPFunc: func(ctx context.Context, email string) (bool, error) {
+			return false, nil // rate-limited
+		},
+	}
+	router := server.NewRouter(mockAuthRepo, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
 
+	payload := map[string]string{"email": "student@nitw.ac.in"}
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("POST", "/auth/signup", bytes.NewBuffer(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
 
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("signup rate-limited: got %d, want 429", rr.Code)
+	}
+}
+
+// TestAuthVerify_BlockedUser verifies that a user whose account status is "blocked"
+// is rejected with 403 on any protected endpoint after they have a valid token.
+func TestAuthVerify_BlockedUser(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+	mockAuthRepo := &MockAuthRepository{
+		GetUserStatusFunc: func(ctx context.Context, userID string) (string, error) {
+			return "blocked", nil
+		},
+	}
+	router := server.NewRouter(mockAuthRepo, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+
+	token, _ := auth.GenerateToken("blocked-user-id", "student@nitw.ac.in")
+	req, _ := http.NewRequest("GET", "/me", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("blocked user accessing /me: got %d, want 403", rr.Code)
+	}
+}
+
+// TestAuthRefresh_InvalidToken verifies that a garbage refresh token returns 401.
+func TestAuthRefresh_InvalidToken(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+	router := server.NewRouter(&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+
+	payload := auth.RefreshRequest{RefreshToken: "this-is-not-a-valid-token"}
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("POST", "/auth/refresh", bytes.NewBuffer(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("refresh with invalid token: got %d, want 401", rr.Code)
+	}
+}

@@ -154,5 +154,111 @@ func TestProfileUpdateValidation(t *testing.T) {
 	}
 }
 
+// --- Connection & Block tests ---
 
+func TestGetConnections_RequiresAuth(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+	router := server.NewRouter(&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	req, _ := http.NewRequest("GET", "/me/connections", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("GET /me/connections without auth: got %d, want 401", rr.Code)
+	}
+}
 
+func TestGetConnections_Success(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+	mockProfileRepo := &MockProfileRepository{}
+	router := server.NewRouter(&MockAuthRepository{}, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
+	req, _ := http.NewRequest("GET", "/me/connections", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("GET /me/connections: got %d, want 200", rr.Code)
+	}
+}
+
+func TestBlockUser_RequiresAuth(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+	router := server.NewRouter(&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	req, _ := http.NewRequest("POST", "/users/some-user-id/block", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("POST /users/{id}/block without auth: got %d, want 401", rr.Code)
+	}
+}
+
+func TestBlockUser_Success(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+	router := server.NewRouter(&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
+	req, _ := http.NewRequest("POST", "/users/other-user/block", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("POST /users/{id}/block: got %d, want 200", rr.Code)
+	}
+}
+
+// --- Alumni badge tests ---
+
+// TestIsAlumni_VerifiedPastExpiry: verified user with past expiry → is_alumni should be true.
+// This is tested indirectly via the mock since repository SQL logic is unit-tested at the repo level.
+// Here we test that the API handler returns the profile with is_alumni matching what the repo provides.
+func TestIsAlumni_VerifiedUser_ReturnsAlumniBadge(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+	mockProfileRepo := &MockProfileRepository{
+		GetProfileFunc: func(ctx context.Context, userID string) (*profile.ProfileResponse, error) {
+			return &profile.ProfileResponse{
+				FullName: "Test Alumni",
+				Status:   "verified",
+				IsAlumni: true, // repo computed: status=verified AND expiry in the past
+			}, nil
+		},
+	}
+	router := server.NewRouter(&MockAuthRepository{}, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
+	req, _ := http.NewRequest("GET", "/me", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /me: got %d, want 200", rr.Code)
+	}
+	var resp profile.ProfileResponse
+	json.NewDecoder(rr.Body).Decode(&resp)
+	if !resp.IsAlumni {
+		t.Error("expected is_alumni=true for verified user with past expiry")
+	}
+}
+
+func TestIsAlumni_PendingUser_NoAlumniBadge(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret")
+	mockProfileRepo := &MockProfileRepository{
+		GetProfileFunc: func(ctx context.Context, userID string) (*profile.ProfileResponse, error) {
+			return &profile.ProfileResponse{
+				FullName: "Pending Student",
+				Status:   "pending",
+				IsAlumni: false, // repo computed: status != verified → false regardless of expiry
+			}, nil
+		},
+	}
+	router := server.NewRouter(&MockAuthRepository{}, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
+	req, _ := http.NewRequest("GET", "/me", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	var resp profile.ProfileResponse
+	json.NewDecoder(rr.Body).Decode(&resp)
+	if resp.IsAlumni {
+		t.Error("expected is_alumni=false for pending user even with past expiry")
+	}
+}

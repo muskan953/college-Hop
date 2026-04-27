@@ -4,8 +4,11 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // Use "http://10.0.2.2:8080" for Android emulator
-  // Use "http://localhost:8080" for iOS/Web or desktop
+  // Use "http://localhost:8080" for iOS/Web/Desktop, or Physical Android via adb reverse
   static const String baseUrl = "http://localhost:8080";
+
+  /// Overridable HTTP client — swap this in tests with a MockClient.
+  static http.Client httpClient = http.Client();
 
   // ── Token Refresh Interceptor ───────────────────────────────────────────
 
@@ -34,7 +37,7 @@ class ApiService {
 
   static Future<http.Response> signup(String email) async {
     final url = Uri.parse("$baseUrl/auth/signup");
-    return await http.post(
+    return await httpClient.post(
       url,
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"email": email}),
@@ -43,7 +46,7 @@ class ApiService {
 
   static Future<http.Response> login(String email) async {
     final url = Uri.parse("$baseUrl/auth/login");
-    return await http.post(
+    return await httpClient.post(
       url,
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"email": email}),
@@ -52,7 +55,7 @@ class ApiService {
 
   static Future<http.Response> verifyOTP(String email, String otp) async {
     final url = Uri.parse("$baseUrl/auth/verify");
-    return await http.post(
+    return await httpClient.post(
       url,
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"email": email, "otp": otp}),
@@ -61,7 +64,7 @@ class ApiService {
 
   static Future<http.Response> refreshToken(String refreshToken) async {
     final url = Uri.parse("$baseUrl/auth/refresh");
-    return await http.post(
+    return await httpClient.post(
       url,
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"refresh_token": refreshToken}),
@@ -70,7 +73,7 @@ class ApiService {
 
   static Future<http.Response> logout(String refreshToken) async {
     final url = Uri.parse("$baseUrl/auth/logout");
-    return await http.post(
+    return await httpClient.post(
       url,
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"refresh_token": refreshToken}),
@@ -80,7 +83,7 @@ class ApiService {
   // ── Profile ─────────────────────────────────────────────────────────────
 
   static Future<http.Response> getProfile(String token) =>
-      _withAuth(token, (t) => http.get(
+      _withAuth(token, (t) => httpClient.get(
         Uri.parse("$baseUrl/me"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
@@ -93,7 +96,7 @@ class ApiService {
       ));
 
   static Future<http.Response> getPreferences(String token) =>
-      _withAuth(token, (t) => http.get(
+      _withAuth(token, (t) => httpClient.get(
         Uri.parse("$baseUrl/me/preferences"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
@@ -110,7 +113,7 @@ class ApiService {
   /// GET /events — fetch all approved events (public, no auth required)
   static Future<http.Response> getEvents() async {
     final url = Uri.parse("$baseUrl/events");
-    return await http.get(
+    return await httpClient.get(
       url,
       headers: {"Content-Type": "application/json"},
     );
@@ -125,7 +128,7 @@ class ApiService {
       ));
 
   static Future<http.Response> getUserEvents(String token) =>
-      _withAuth(token, (t) => http.get(
+      _withAuth(token, (t) => httpClient.get(
         Uri.parse("$baseUrl/me/events"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
@@ -133,62 +136,62 @@ class ApiService {
   // ── Groups ──────────────────────────────────────────────────────────────
 
   static Future<http.Response> getUserGroups(String token) =>
-      _withAuth(token, (t) => http.get(
+      _withAuth(token, (t) => httpClient.get(
         Uri.parse("$baseUrl/me/groups"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> getSuggestedGroups(String token, String eventId) =>
-      _withAuth(token, (t) => http.get(
+      _withAuth(token, (t) => httpClient.get(
         Uri.parse("$baseUrl/groups/suggested?event_id=$eventId"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> getGroupDetails(String token, String groupId) =>
-      _withAuth(token, (t) => http.get(
+      _withAuth(token, (t) => httpClient.get(
         Uri.parse("$baseUrl/groups/$groupId"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> joinGroup(String token, String groupId) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/groups/$groupId/join"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> leaveGroup(String token, String groupId) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/groups/$groupId/leave"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> getAllGroups(String token) =>
-      _withAuth(token, (t) => http.get(
+      _withAuth(token, (t) => httpClient.get(
         Uri.parse("$baseUrl/groups"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> createGroup(String token, Map<String, dynamic> data) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/groups"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
         body: jsonEncode(data),
       ));
 
   static Future<http.Response> getGroupRequests(String token, String groupId) =>
-      _withAuth(token, (t) => http.get(
+      _withAuth(token, (t) => httpClient.get(
         Uri.parse("$baseUrl/groups/$groupId/requests"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> acceptGroupRequest(String token, String groupId, String userId) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/groups/$groupId/requests/$userId/accept"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> declineGroupRequest(String token, String groupId, String userId) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/groups/$groupId/requests/$userId/decline"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
@@ -222,19 +225,19 @@ class ApiService {
   // ── Users / Matching ────────────────────────────────────────────────────
 
   static Future<http.Response> getMatches(String token, String eventId) =>
-      _withAuth(token, (t) => http.get(
+      _withAuth(token, (t) => httpClient.get(
         Uri.parse("$baseUrl/users/matches?event_id=$eventId"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> getPublicProfile(String token, String userId) =>
-      _withAuth(token, (t) => http.get(
+      _withAuth(token, (t) => httpClient.get(
         Uri.parse("$baseUrl/users/$userId"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> connectUser(String token, String userId, String message) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/users/$userId/connect"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
         body: jsonEncode({"message": message}),
@@ -243,63 +246,63 @@ class ApiService {
   // ── Messages ────────────────────────────────────────────────────────────
 
   static Future<http.Response> acceptRequest(String token, String threadId) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/messages/threads/$threadId/accept"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> declineRequest(String token, String threadId) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/messages/threads/$threadId/decline"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> getConnections(String token) =>
-      _withAuth(token, (t) => http.get(
+      _withAuth(token, (t) => httpClient.get(
         Uri.parse("$baseUrl/me/connections"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> getThreads(String token) =>
-      _withAuth(token, (t) => http.get(
+      _withAuth(token, (t) => httpClient.get(
         Uri.parse("$baseUrl/messages/threads"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> markAsRead(String token, String threadId) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/messages/threads/$threadId/read"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> getMessages(String token, String threadId) =>
-      _withAuth(token, (t) => http.get(
+      _withAuth(token, (t) => httpClient.get(
         Uri.parse("$baseUrl/messages/$threadId"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> sendMessage(String token, Map<String, dynamic> data) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/messages/send"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
         body: jsonEncode(data),
       ));
 
   static Future<http.Response> createDirectThread(String token, String userId) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/messages/thread/direct"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
         body: jsonEncode({"user_id": userId}),
       ));
 
   static Future<http.Response> clearThread(String token, String threadId) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/messages/threads/$threadId/clear"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> registerDeviceToken(String token, String fcmToken, String platform) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/me/device-token"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
         body: jsonEncode({"token": fcmToken, "platform": platform}),
@@ -314,14 +317,14 @@ class ApiService {
   // ── Alternate Email ─────────────────────────────────────────────────────
 
   static Future<http.Response> requestAlternateEmailOTP(String token, String email) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/me/alternate-email/request-otp"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
         body: jsonEncode({"email": email}),
       ));
 
   static Future<http.Response> verifyAlternateEmail(String token, String email, String otp) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/me/alternate-email/verify"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
         body: jsonEncode({"email": email, "otp": otp}),
@@ -330,19 +333,19 @@ class ApiService {
   // ── Block / Unblock ─────────────────────────────────────────────────────
 
   static Future<http.Response> blockUser(String token, String userId) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/users/$userId/block"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> unblockUser(String token, String userId) =>
-      _withAuth(token, (t) => http.post(
+      _withAuth(token, (t) => httpClient.post(
         Uri.parse("$baseUrl/users/$userId/unblock"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));
 
   static Future<http.Response> getBlockedUsers(String token) =>
-      _withAuth(token, (t) => http.get(
+      _withAuth(token, (t) => httpClient.get(
         Uri.parse("$baseUrl/me/blocked"),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $t"},
       ));

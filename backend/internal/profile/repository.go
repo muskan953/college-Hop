@@ -35,10 +35,14 @@ func (r *PostgresRepository) UpsertProfile(ctx context.Context, userID string, r
 	}
 	defer tx.Rollback()
 
-	// Check if the ID card URL is changing so we know whether to reset status
-	var existingIDCardURL string
-	_ = tx.QueryRowContext(ctx, `SELECT COALESCE(college_id_card_url, '') FROM profiles WHERE user_id = $1`, userID).Scan(&existingIDCardURL)
+	// Check if the ID card URL or expiry date is changing so we know whether to reset status
+	var existingIDCardURL, existingIDExpiration string
+	_ = tx.QueryRowContext(ctx,
+		`SELECT COALESCE(college_id_card_url, ''), COALESCE(id_expiration::text, '') FROM profiles WHERE user_id = $1`,
+		userID,
+	).Scan(&existingIDCardURL, &existingIDExpiration)
 	idCardChanged := req.IDCardURL != "" && req.IDCardURL != existingIDCardURL
+	expiryChanged := req.IDExpiration != "" && req.IDExpiration != existingIDExpiration
 
 	now := time.Now()
 
@@ -111,8 +115,10 @@ func (r *PostgresRepository) UpsertProfile(ctx context.Context, userID string, r
 		return err
 	}
 
-	// Reset verification status to pending when a new ID card is uploaded
-	if idCardChanged {
+	// Reset verification status to pending when ID card URL or expiry date changes.
+	// Both are visible on the physical ID card an admin reviews, so changing either
+	// invalidates the previous verification.
+	if idCardChanged || expiryChanged {
 		_, err = tx.ExecContext(ctx,
 			`UPDATE users SET status = 'pending' WHERE id = $1 AND status = 'verified'`,
 			userID,
@@ -177,8 +183,9 @@ func (r *PostgresRepository) GetProfile(ctx context.Context, userID string) (*Pr
 			COALESCE(p.profile_photo_url, ''),
 			COALESCE(p.college_id_card_url, ''),
 			COALESCE(p.alternate_email, ''),
-		    COALESCE(u.status, ''),
-			p.id_card_uploaded_at
+			COALESCE(u.status, ''),
+			p.id_card_uploaded_at,
+			(u.status = 'verified' AND p.id_expiration IS NOT NULL AND p.id_expiration < NOW()) AS is_alumni
 		FROM users u
 		LEFT JOIN profiles p ON u.id = p.user_id
 		WHERE u.id = $1
@@ -194,6 +201,7 @@ func (r *PostgresRepository) GetProfile(ctx context.Context, userID string) (*Pr
 		&alternateEmail,
 		&profile.Status,
 		&idCardUploadedAt,
+		&profile.IsAlumni,
 	)
 
 	if err != nil {
@@ -211,10 +219,9 @@ func (r *PostgresRepository) GetProfile(ctx context.Context, userID string) (*Pr
 	profile.IDCardURL = idCardURL.String
 	profile.AlternateEmail = alternateEmail.String
 
-	// Compute IsAlumni: id_expiration is in the past
+	// Keep IDExpiration for display purposes (informational, not used for badge logic)
 	if idExpiration.Valid {
 		profile.IDExpiration = idExpiration.Time.Format("2006-01-02")
-		profile.IsAlumni = idExpiration.Time.Before(time.Now())
 	}
 
 	if idCardUploadedAt.Valid {
@@ -331,8 +338,6 @@ func (r *PostgresRepository) GetPreferences(ctx context.Context, userID string) 
 func (r *PostgresRepository) GetPublicProfile(ctx context.Context, userID string) (*PublicProfileResponse, error) {
 	var p PublicProfileResponse
 	var fullName, collegeName, major, bio, photoURL sql.NullString
-	var status string
-	var idExpiration sql.NullTime
 
 	err := r.db.QueryRowContext(ctx, `
 		SELECT
@@ -341,13 +346,13 @@ func (r *PostgresRepository) GetPublicProfile(ctx context.Context, userID string
 			COALESCE(p.major, ''),
 			COALESCE(p.bio, ''),
 			COALESCE(p.profile_photo_url, ''),
-			COALESCE(u.status, 'pending'),
-			p.id_expiration
+			COALESCE(u.status, 'pending') = 'verified' AS is_verified,
+			(u.status = 'verified' AND p.id_expiration IS NOT NULL AND p.id_expiration < NOW()) AS is_alumni
 		FROM users u
 		LEFT JOIN profiles p ON p.user_id = u.id
 		WHERE u.id = $1
 	`, userID).Scan(
-		&fullName, &collegeName, &major, &bio, &photoURL, &status, &idExpiration,
+		&fullName, &collegeName, &major, &bio, &photoURL, &p.IsVerified, &p.IsAlumni,
 	)
 	if err == sql.ErrNoRows {
 		return nil, sql.ErrNoRows
@@ -362,10 +367,6 @@ func (r *PostgresRepository) GetPublicProfile(ctx context.Context, userID string
 	p.Major = major.String
 	p.Bio = bio.String
 	p.ProfilePhotoURL = photoURL.String
-	p.IsVerified = status == "verified"
-	if idExpiration.Valid {
-		p.IsAlumni = idExpiration.Time.Before(time.Now())
-	}
 
 	// Fetch interests
 	rows, err := r.db.QueryContext(ctx, `

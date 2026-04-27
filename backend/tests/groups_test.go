@@ -112,8 +112,8 @@ func TestJoinGroup_GroupFull(t *testing.T) {
 		GetGroupFunc: func(ctx context.Context, groupID string) (*groups.Group, error) {
 			return &groups.Group{ID: "grp-1", MaxMembers: 4}, nil
 		},
-		JoinGroupCheckedFunc: func(ctx context.Context, groupID, userID string) error {
-			return groups.ErrGroupFull // atomic check says full
+		JoinGroupCheckedFunc: func(ctx context.Context, groupID, userID string) (bool, error) {
+			return false, groups.ErrGroupFull // atomic check says full
 		},
 	}
 
@@ -713,7 +713,7 @@ type MockGroupsRepositoryFull struct {
 	GetGroupFunc                        func(ctx context.Context, groupID string) (*groups.Group, error)
 	GetGroupThreadIDFunc                func(ctx context.Context, groupID string) (string, error)
 	JoinGroupFunc                       func(ctx context.Context, groupID, userID string) error
-	JoinGroupCheckedFunc                func(ctx context.Context, groupID, userID string) error
+	JoinGroupCheckedFunc                func(ctx context.Context, groupID, userID string) (bool, error)
 	GetMemberCountFunc                  func(ctx context.Context, groupID string) (int, error)
 	GetGroupsForEventFunc               func(ctx context.Context, eventID string) ([]groups.Group, error)
 	GetGroupsWithCountsForEventFunc     func(ctx context.Context, eventID string) ([]groups.GroupWithDetails, error)
@@ -753,11 +753,11 @@ func (m *MockGroupsRepositoryFull) JoinGroup(ctx context.Context, groupID, userI
 	}
 	return nil
 }
-func (m *MockGroupsRepositoryFull) JoinGroupChecked(ctx context.Context, groupID, userID string) error {
+func (m *MockGroupsRepositoryFull) JoinGroupChecked(ctx context.Context, groupID, userID string) (bool, error) {
 	if m.JoinGroupCheckedFunc != nil {
 		return m.JoinGroupCheckedFunc(ctx, groupID, userID)
 	}
-	return nil
+	return false, nil
 }
 func (m *MockGroupsRepositoryFull) GetMemberCount(ctx context.Context, groupID string) (int, error) {
 	if m.GetMemberCountFunc != nil {
@@ -801,45 +801,67 @@ func (m *MockGroupsRepositoryFull) GetUserInterests(ctx context.Context, userID 
 	}
 	return []string{}, nil
 }
+
 func (m *MockGroupsRepositoryFull) GetGroupMembers(ctx context.Context, groupID string) ([]groups.GroupMemberProfile, error) {
 	if m.GetGroupMembersFunc != nil {
 		return m.GetGroupMembersFunc(ctx, groupID)
 	}
 	return []groups.GroupMemberProfile{}, nil
 }
+
 func (m *MockGroupsRepositoryFull) UpdateGroup(ctx context.Context, groupID, name, description, meetingPoint string, departureDate *time.Time) error {
 	if m.UpdateGroupFunc != nil {
 		return m.UpdateGroupFunc(ctx, groupID, name, description, meetingPoint, departureDate)
 	}
 	return nil
 }
+
 func (m *MockGroupsRepositoryFull) DeleteGroup(ctx context.Context, groupID string) error {
 	if m.DeleteGroupFunc != nil {
 		return m.DeleteGroupFunc(ctx, groupID)
 	}
 	return nil
 }
+
 func (m *MockGroupsRepositoryFull) RemoveMember(ctx context.Context, groupID, userID string) error {
 	if m.RemoveMemberFunc != nil {
 		return m.RemoveMemberFunc(ctx, groupID, userID)
 	}
 	return nil
 }
+
 func (m *MockGroupsRepositoryFull) IsGroupMember(ctx context.Context, groupID, userID string) (bool, error) {
 	if m.IsGroupMemberFunc != nil {
 		return m.IsGroupMemberFunc(ctx, groupID, userID)
 	}
-	return true, nil
+	return false, nil
 }
+
 func (m *MockGroupsRepositoryFull) GetUserGroups(ctx context.Context, userID string) ([]groups.GroupWithDetails, error) {
 	if m.GetUserGroupsFunc != nil {
 		return m.GetUserGroupsFunc(ctx, userID)
 	}
 	return []groups.GroupWithDetails{}, nil
 }
+
 func (m *MockGroupsRepositoryFull) GetAllGroups(ctx context.Context, userID string) ([]groups.GroupWithDetails, error) {
 	return []groups.GroupWithDetails{}, nil
 }
+
+func (m *MockGroupsRepositoryFull) CreateJoinRequest(ctx context.Context, groupID, userID string) error {
+	return nil
+}
+func (m *MockGroupsRepositoryFull) GetJoinRequests(ctx context.Context, groupID string) ([]groups.GroupMemberProfile, error) {
+	return []groups.GroupMemberProfile{}, nil
+}
+func (m *MockGroupsRepositoryFull) AcceptJoinRequest(ctx context.Context, groupID, userID string) error {
+	return nil
+}
+func (m *MockGroupsRepositoryFull) DeclineJoinRequest(ctx context.Context, groupID, userID string) error {
+	return nil
+}
+
+
 
 // --- GetMyGroups Tests ---
 
