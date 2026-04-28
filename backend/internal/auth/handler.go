@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/muskan953/college-Hop/internal/email"
 )
 
 type SignupRequest struct {
@@ -35,11 +37,12 @@ type RefreshResponse struct {
 }
 
 type Handler struct {
-	repo Repository
+	repo         Repository
+	emailService email.Service
 }
 
-func NewHandler(repo Repository) *Handler {
-	return &Handler{repo: repo}
+func NewHandler(repo Repository, emailService email.Service) *Handler {
+	return &Handler{repo: repo, emailService: emailService}
 }
 
 func (h *Handler) Signup(w http.ResponseWriter, r *http.Request) {
@@ -86,8 +89,16 @@ func (h *Handler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TEMP: log OTP (remove in production)
-	log.Printf("OTP for %s: %s", req.Email, otp)
+	// Send OTP Email
+	if h.emailService != nil {
+		if err := h.emailService.SendOTP(req.Email, otp); err != nil {
+			log.Printf("Failed to send OTP to %s: %v", req.Email, err)
+			http.Error(w, "failed to send OTP email", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		log.Printf("[DEV OTP] %s: %s", req.Email, otp)
+	}
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(SignupResponse{
@@ -149,7 +160,15 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("OTP for %s: %s", req.Email, otp)
+	if h.emailService != nil {
+		if err := h.emailService.SendOTP(req.Email, otp); err != nil {
+			log.Printf("Failed to send OTP to %s: %v", req.Email, err)
+			http.Error(w, "failed to send OTP email", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		log.Printf("[DEV OTP] %s: %s", req.Email, otp)
+	}
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(SignupResponse{

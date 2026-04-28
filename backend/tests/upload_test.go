@@ -24,7 +24,7 @@ func TestUpload(t *testing.T) {
 		},
 	}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, nil, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
 	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
 
 	body := &bytes.Buffer{}

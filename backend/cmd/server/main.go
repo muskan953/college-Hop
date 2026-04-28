@@ -11,15 +11,16 @@ import (
 
 	"github.com/muskan953/college-Hop/internal/admin"
 	"github.com/muskan953/college-Hop/internal/auth"
+	"github.com/muskan953/college-Hop/internal/email"
 	"github.com/muskan953/college-Hop/internal/events"
 	"github.com/muskan953/college-Hop/internal/groups"
 	"github.com/muskan953/college-Hop/internal/messages"
 	"github.com/muskan953/college-Hop/internal/middleware"
 	"github.com/muskan953/college-Hop/internal/profile"
 	"github.com/muskan953/college-Hop/internal/server"
-	"github.com/muskan953/college-Hop/pkg/notify"
 	"github.com/muskan953/college-Hop/pkg/db"
 	"github.com/muskan953/college-Hop/pkg/migrations"
+	"github.com/muskan953/college-Hop/pkg/notify"
 	"github.com/muskan953/college-Hop/pkg/storage"
 )
 
@@ -59,6 +60,18 @@ func main() {
 	groupsRepo := groups.NewRepository(database)
 	messagesRepo := messages.NewRepository(database)
 
+	// Initialize Email service
+	var emailService email.Service
+	if apiKey := os.Getenv("RESEND_API_KEY"); apiKey != "" {
+		fromAddr := os.Getenv("RESEND_FROM")
+		if fromAddr == "" {
+			fromAddr = "onboarding@resend.dev"
+		}
+		emailService = email.NewResendService(apiKey, fromAddr)
+	} else {
+		emailService = email.NewMockService()
+	}
+
 	// Initialize FCM for push notifications
 	notifier := notify.New()
 
@@ -66,7 +79,7 @@ func main() {
 	hub := messages.NewHub(messagesRepo, notifier)
 	go hub.Run()
 
-	mux := server.NewRouter(authRepo, profileRepo, adminRepo, eventsRepo, groupsRepo, messagesRepo, hub, store, uploadDir)
+	mux := server.NewRouter(authRepo, emailService, profileRepo, adminRepo, eventsRepo, groupsRepo, messagesRepo, hub, store, uploadDir)
 
 	// Wrap with rate limiter: 20 requests/sec, burst of 40
 	limiter := middleware.NewRateLimiter(20, 40)

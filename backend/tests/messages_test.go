@@ -22,7 +22,7 @@ func newMsgRouter(t *testing.T, msgRepo messages.Repository) http.Handler {
 	t.Setenv("JWT_SECRET", "testsecret")
 	hub := messages.NewHub(msgRepo, nil)
 	return server.NewRouter(
-		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockAuthRepository{}, nil, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, &MockGroupsRepository{},
 		msgRepo, hub, &MockFileStorage{}, "./uploads",
 	)

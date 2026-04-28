@@ -16,7 +16,7 @@ func newAdminRouter(t *testing.T) http.Handler {
 	t.Setenv("JWT_SECRET", "testsecret")
 	t.Setenv("ADMIN_SECRET", "test-admin-secret")
 	return server.NewRouter(
-		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockAuthRepository{}, nil, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, &MockGroupsRepository{},
 		nil, nil, &MockFileStorage{}, "./uploads",
 	)
@@ -46,7 +46,7 @@ func TestAdminListPending_Success(t *testing.T) {
 	t.Setenv("JWT_SECRET", "testsecret")
 	t.Setenv("ADMIN_SECRET", "test-admin-secret")
 	router := server.NewRouter(
-		&MockAuthRepository{}, &MockProfileRepository{}, mockAdminRepo,
+		&MockAuthRepository{}, nil, &MockProfileRepository{}, mockAdminRepo,
 		&MockEventsRepository{}, &MockGroupsRepository{},
 		nil, nil, &MockFileStorage{}, "./uploads",
 	)
@@ -80,7 +80,7 @@ func TestAdminVerifyUser_Success(t *testing.T) {
 	t.Setenv("JWT_SECRET", "testsecret")
 	t.Setenv("ADMIN_SECRET", "test-admin-secret")
 	router := server.NewRouter(
-		&MockAuthRepository{}, &MockProfileRepository{}, mockAdminRepo,
+		&MockAuthRepository{}, nil, &MockProfileRepository{}, mockAdminRepo,
 		&MockEventsRepository{}, &MockGroupsRepository{},
 		nil, nil, &MockFileStorage{}, "./uploads",
 	)
@@ -112,7 +112,7 @@ func TestAdminBlockUser_Success(t *testing.T) {
 	t.Setenv("JWT_SECRET", "testsecret")
 	t.Setenv("ADMIN_SECRET", "test-admin-secret")
 	router := server.NewRouter(
-		&MockAuthRepository{}, &MockProfileRepository{}, mockAdminRepo,
+		&MockAuthRepository{}, nil, &MockProfileRepository{}, mockAdminRepo,
 		&MockEventsRepository{}, &MockGroupsRepository{},
 		nil, nil, &MockFileStorage{}, "./uploads",
 	)

@@ -25,7 +25,7 @@ func TestAuthSignup(t *testing.T) {
 	mockProfileRepo := &MockProfileRepository{}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, nil, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
 
 	payload := map[string]string{"email": "student@nitw.ac.in"}
 	body, _ := json.Marshal(payload)
@@ -51,7 +51,7 @@ func TestAuthVerify(t *testing.T) {
 	mockProfileRepo := &MockProfileRepository{}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, nil, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
 
 	payload := map[string]string{"email": "student@nitw.ac.in", "otp": "123456"}
 	body, _ := json.Marshal(payload)
@@ -109,7 +109,7 @@ func TestAuthRefresh(t *testing.T) {
 	mockProfileRepo := &MockProfileRepository{}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, nil, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
 
 	// 2. Refresh request
 	payload := auth.RefreshRequest{RefreshToken: refreshToken}
@@ -147,7 +147,7 @@ func TestAuthLogout(t *testing.T) {
 	mockProfileRepo := &MockProfileRepository{}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, nil, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
 
 	payload := auth.RefreshRequest{RefreshToken: "some-token"}
 	body, _ := json.Marshal(payload)
@@ -170,7 +170,7 @@ func TestAuthSignup_OTPRateLimit(t *testing.T) {
 			return false, nil // rate-limited
 		},
 	}
-	router := server.NewRouter(mockAuthRepo, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	router := server.NewRouter(mockAuthRepo, nil, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
 
 	payload := map[string]string{"email": "student@nitw.ac.in"}
 	body, _ := json.Marshal(payload)
@@ -192,7 +192,7 @@ func TestAuthVerify_BlockedUser(t *testing.T) {
 			return "blocked", nil
 		},
 	}
-	router := server.NewRouter(mockAuthRepo, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	router := server.NewRouter(mockAuthRepo, nil, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
 
 	token, _ := auth.GenerateToken("blocked-user-id", "student@nitw.ac.in")
 	req, _ := http.NewRequest("GET", "/me", nil)
@@ -208,7 +208,7 @@ func TestAuthVerify_BlockedUser(t *testing.T) {
 // TestAuthRefresh_InvalidToken verifies that a garbage refresh token returns 401.
 func TestAuthRefresh_InvalidToken(t *testing.T) {
 	t.Setenv("JWT_SECRET", "testsecret")
-	router := server.NewRouter(&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	router := server.NewRouter(&MockAuthRepository{}, nil, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
 
 	payload := auth.RefreshRequest{RefreshToken: "this-is-not-a-valid-token"}
 	body, _ := json.Marshal(payload)

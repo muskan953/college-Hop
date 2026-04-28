@@ -28,7 +28,7 @@ func TestListEvents_ReturnsApproved(t *testing.T) {
 	}
 
 	router := server.NewRouter(
-		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockAuthRepository{}, nil, &MockProfileRepository{}, &MockAdminRepository{},
 		mockEventsRepo, &MockGroupsRepository{},
 		nil, nil, &MockFileStorage{}, "./uploads",
 	)
@@ -61,7 +61,7 @@ func TestListEvents_EmptyList(t *testing.T) {
 	}
 
 	router := server.NewRouter(
-		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockAuthRepository{}, nil, &MockProfileRepository{}, &MockAdminRepository{},
 		mockEventsRepo, &MockGroupsRepository{},
 		nil, nil, &MockFileStorage{}, "./uploads",
 	)
@@ -85,7 +85,7 @@ func TestCreateEvent_RequiresAuth(t *testing.T) {
 	t.Setenv("JWT_SECRET", "testsecret")
 
 	router := server.NewRouter(
-		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockAuthRepository{}, nil, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, &MockGroupsRepository{},
 		nil, nil, &MockFileStorage{}, "./uploads",
 	)
@@ -118,7 +118,7 @@ func TestCreateEvent_Success(t *testing.T) {
 	}
 
 	router := server.NewRouter(
-		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockAuthRepository{}, nil, &MockProfileRepository{}, &MockAdminRepository{},
 		mockEventsRepo, &MockGroupsRepository{},
 		nil, nil, &MockFileStorage{}, "./uploads",
 	)
@@ -153,7 +153,7 @@ func TestCreateEvent_ValidationFails(t *testing.T) {
 	t.Setenv("JWT_SECRET", "testsecret")
 
 	router := server.NewRouter(
-		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockAuthRepository{}, nil, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepositoryFull{}, &MockGroupsRepository{},
 		nil, nil, &MockFileStorage{}, "./uploads",
 	)
@@ -178,7 +178,7 @@ func TestSetUserEvent_RequiresAuth(t *testing.T) {
 	t.Setenv("JWT_SECRET", "testsecret")
 
 	router := server.NewRouter(
-		&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{},
+		&MockAuthRepository{}, nil, &MockProfileRepository{}, &MockAdminRepository{},
 		&MockEventsRepository{}, &MockGroupsRepository{},
 		nil, nil, &MockFileStorage{}, "./uploads",
 	)

@@ -6,6 +6,7 @@ import (
 
 	"github.com/muskan953/college-Hop/internal/admin"
 	"github.com/muskan953/college-Hop/internal/auth"
+	"github.com/muskan953/college-Hop/internal/email"
 	"github.com/muskan953/college-Hop/internal/events"
 	"github.com/muskan953/college-Hop/internal/groups"
 	"github.com/muskan953/college-Hop/internal/messages"
@@ -14,7 +15,7 @@ import (
 	"github.com/muskan953/college-Hop/pkg/storage"
 )
 
-func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRepo admin.Repository, eventsRepo events.Repository, groupsRepo groups.Repository, messagesRepo messages.Repository, hub *messages.Hub, store storage.FileStorage, uploadDir string) *http.ServeMux {
+func NewRouter(authRepo auth.Repository, emailService email.Service, profileRepo profile.Repository, adminRepo admin.Repository, eventsRepo events.Repository, groupsRepo groups.Repository, messagesRepo messages.Repository, hub *messages.Hub, store storage.FileStorage, uploadDir string) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// authMW is the full auth middleware: validates JWT + rejects blocked users.
@@ -25,7 +26,7 @@ func NewRouter(authRepo auth.Repository, profileRepo profile.Repository, adminRe
 		w.Write([]byte("OK"))
 	})
 
-	authHandler := auth.NewHandler(authRepo)
+	authHandler := auth.NewHandler(authRepo, emailService)
 
 	mux.HandleFunc("/auth/signup", authHandler.Signup)
 	mux.HandleFunc("/auth/login", authHandler.Login)

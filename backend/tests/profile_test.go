@@ -30,7 +30,7 @@ func TestProfileGetMe(t *testing.T) {
 	}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, nil, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
 
 	// Generate token (this uses the JWT_SECRET from env)
 	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
@@ -67,7 +67,7 @@ func TestProfileUpdateMe(t *testing.T) {
 	}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, nil, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
 
 	// Generate token
 	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
@@ -97,7 +97,7 @@ func TestProfileUpdateValidation(t *testing.T) {
 	mockProfileRepo := &MockProfileRepository{}
 	mockStore := &MockFileStorage{}
 
-	router := server.NewRouter(mockAuthRepo, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
+	router := server.NewRouter(mockAuthRepo, nil, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, mockStore, "./uploads")
 	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
 
 	tests := []struct {
@@ -158,7 +158,7 @@ func TestProfileUpdateValidation(t *testing.T) {
 
 func TestGetConnections_RequiresAuth(t *testing.T) {
 	t.Setenv("JWT_SECRET", "testsecret")
-	router := server.NewRouter(&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	router := server.NewRouter(&MockAuthRepository{}, nil, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
 	req, _ := http.NewRequest("GET", "/me/connections", nil)
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
@@ -170,7 +170,7 @@ func TestGetConnections_RequiresAuth(t *testing.T) {
 func TestGetConnections_Success(t *testing.T) {
 	t.Setenv("JWT_SECRET", "testsecret")
 	mockProfileRepo := &MockProfileRepository{}
-	router := server.NewRouter(&MockAuthRepository{}, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	router := server.NewRouter(&MockAuthRepository{}, nil, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
 	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
 	req, _ := http.NewRequest("GET", "/me/connections", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -183,7 +183,7 @@ func TestGetConnections_Success(t *testing.T) {
 
 func TestBlockUser_RequiresAuth(t *testing.T) {
 	t.Setenv("JWT_SECRET", "testsecret")
-	router := server.NewRouter(&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	router := server.NewRouter(&MockAuthRepository{}, nil, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
 	req, _ := http.NewRequest("POST", "/users/some-user-id/block", nil)
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
@@ -194,7 +194,7 @@ func TestBlockUser_RequiresAuth(t *testing.T) {
 
 func TestBlockUser_Success(t *testing.T) {
 	t.Setenv("JWT_SECRET", "testsecret")
-	router := server.NewRouter(&MockAuthRepository{}, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	router := server.NewRouter(&MockAuthRepository{}, nil, &MockProfileRepository{}, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
 	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
 	req, _ := http.NewRequest("POST", "/users/other-user/block", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -221,7 +221,7 @@ func TestIsAlumni_VerifiedUser_ReturnsAlumniBadge(t *testing.T) {
 			}, nil
 		},
 	}
-	router := server.NewRouter(&MockAuthRepository{}, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	router := server.NewRouter(&MockAuthRepository{}, nil, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
 	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
 	req, _ := http.NewRequest("GET", "/me", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -249,7 +249,7 @@ func TestIsAlumni_PendingUser_NoAlumniBadge(t *testing.T) {
 			}, nil
 		},
 	}
-	router := server.NewRouter(&MockAuthRepository{}, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
+	router := server.NewRouter(&MockAuthRepository{}, nil, mockProfileRepo, &MockAdminRepository{}, &MockEventsRepository{}, &MockGroupsRepository{}, nil, nil, &MockFileStorage{}, "./uploads")
 	token, _ := auth.GenerateToken("test-user-id", "student@nitw.ac.in")
 	req, _ := http.NewRequest("GET", "/me", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
