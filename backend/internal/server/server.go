@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"net/http"
 	"strings"
 
@@ -15,7 +16,7 @@ import (
 	"github.com/muskan953/college-Hop/pkg/storage"
 )
 
-func NewRouter(authRepo auth.Repository, emailService email.Service, profileRepo profile.Repository, adminRepo admin.Repository, eventsRepo events.Repository, groupsRepo groups.Repository, messagesRepo messages.Repository, hub *messages.Hub, store storage.FileStorage, uploadDir string) *http.ServeMux {
+func NewRouter(authRepo auth.Repository, emailService email.Service, profileRepo profile.Repository, adminRepo admin.Repository, eventsRepo events.Repository, groupsRepo groups.Repository, messagesRepo messages.Repository, hub *messages.Hub, store storage.FileStorage, uploadDir string, db *sql.DB) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// authMW is the full auth middleware: validates JWT + rejects blocked users.
@@ -24,6 +25,11 @@ func NewRouter(authRepo auth.Repository, emailService email.Service, profileRepo
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
+	})
+
+	// Serve admin panel UI (no auth — access is controlled by admin secret in the UI itself)
+	mux.HandleFunc("/admin-panel", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./admin-panel/index.html")
 	})
 
 	authHandler := auth.NewHandler(authRepo, emailService)
@@ -79,9 +85,12 @@ func NewRouter(authRepo auth.Repository, emailService email.Service, profileRepo
 	mux.Handle("/uploads/profile_photo/", http.StripPrefix("/uploads", upload.ServeFile(uploadDir)))
 	// ID cards are private (require authentication)
 	mux.Handle("/uploads/id_card/", authMW(http.StripPrefix("/uploads", upload.ServeFile(uploadDir))))
+	// Admin can view ID cards using admin secret (no JWT needed)
+	mux.Handle("/admin/uploads/", admin.AdminAuth(http.StripPrefix("/admin/uploads", upload.ServeFile(uploadDir))))
 
 	// Admin routes (protected by admin secret)
 	adminHandler := admin.NewHandler(adminRepo)
+	seedHandler := admin.NewSeedHandler(db)
 	mux.Handle("/admin/users/pending", admin.AdminAuth(http.HandlerFunc(adminHandler.ListPendingUsers)))
 	mux.Handle("/admin/users/", admin.AdminAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Route: /admin/users/{id}/verify or /admin/users/{id}/block
@@ -103,6 +112,8 @@ func NewRouter(authRepo auth.Repository, emailService email.Service, profileRepo
 		}
 		http.Error(w, "not found", http.StatusNotFound)
 	})))
+	mux.Handle("/admin/seed", admin.AdminAuth(http.HandlerFunc(seedHandler.SeedDummyData)))
+	mux.Handle("/admin/seed/clear", admin.AdminAuth(http.HandlerFunc(seedHandler.ClearDummyData)))
 
 	// --- Events routes ---
 	eventsHandler := events.NewHandler(eventsRepo)

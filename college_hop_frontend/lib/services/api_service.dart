@@ -3,9 +3,12 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  // Use "http://10.0.2.2:8080" for Android emulator
-  // Use "http://localhost:8080" for iOS/Web/Desktop, or Physical Android via adb reverse
-  static const String baseUrl = "http://localhost:8080";
+  // Set at build time via --dart-define=API_BASE_URL=https://api.collegehop.online
+  // Falls back to localhost for local development
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8080',
+  );
 
   /// Overridable HTTP client — swap this in tests with a MockClient.
   static http.Client httpClient = http.Client();

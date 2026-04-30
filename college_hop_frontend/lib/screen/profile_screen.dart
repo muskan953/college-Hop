@@ -2,6 +2,7 @@ import 'package:college_hop/theme/app_scaffold.dart';
 import 'package:college_hop/screen/setting_screen.dart';
 import 'package:college_hop/screen/edit_profile_screen.dart';
 import 'package:college_hop/screen/splash_screen.dart';
+import 'package:college_hop/services/api_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -44,8 +45,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final name    = (profile?['full_name'] as String?)?.trim() ?? 'CollegeHop User';
     final college = (profile?['college_name'] as String?) ?? '';
 
-    // Builds the link from whatever host the app is currently running on
-    final baseUrl = kIsWeb ? Uri.base.origin : 'http://localhost:8080';
+    // On web: use current origin. On mobile: use ApiService.baseUrl (set at build time)
+    final baseUrl = kIsWeb ? Uri.base.origin : ApiService.baseUrl;
     final profileLink = '$baseUrl/profile/$userId';
     final shareText   = Uri.encodeComponent(
       '${Uri.encodeComponent('')}Check out $name\'s profile on CollegeHop!\n$profileLink',

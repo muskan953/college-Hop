@@ -79,7 +79,7 @@ func main() {
 	hub := messages.NewHub(messagesRepo, notifier)
 	go hub.Run()
 
-	mux := server.NewRouter(authRepo, emailService, profileRepo, adminRepo, eventsRepo, groupsRepo, messagesRepo, hub, store, uploadDir)
+	mux := server.NewRouter(authRepo, emailService, profileRepo, adminRepo, eventsRepo, groupsRepo, messagesRepo, hub, store, uploadDir, database)
 
 	// Wrap with rate limiter: 20 requests/sec, burst of 40
 	limiter := middleware.NewRateLimiter(20, 40)

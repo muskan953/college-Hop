@@ -3,6 +3,7 @@ bin/
 *.exe
 *.test
 *.prof
+server
 
 # OS specific files
 .DS_Store
