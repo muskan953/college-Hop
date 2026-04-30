@@ -67,6 +67,7 @@ func (h *SeedHandler) SeedDummyData(w http.ResponseWriter, r *http.Request) {
 
 	h.seedInterests(ctx)
 	h.seedEnrollments(ctx)
+	h.seedGroups(ctx)
 
 	results["message"] = "Dummy data seeded successfully"
 	w.Header().Set("Content-Type", "application/json")
@@ -190,26 +191,27 @@ func (h *SeedHandler) seedInterests(ctx context.Context) {
 		id   int
 		name string
 	}{
-		{201, "Artificial Intelligence"}, {202, "Machine Learning"}, {203, "Web Development"},
-		{204, "Mobile Apps"}, {205, "Robotics"}, {206, "Data Science"},
-		{207, "Blockchain"}, {208, "UI/UX Design"}, {209, "Startups"}, {210, "Open Source"},
+		{201, "Programming"}, {202, "Design"}, {203, "Startups"},
+		{204, "Gaming"}, {205, "Music"}, {206, "Reading"},
+		{207, "Movies"}, {208, "Travel"}, {209, "Sports"},
+		{210, "Photography"}, {211, "Food"}, {212, "Art"},
 	}
 	for _, i := range interests {
-		h.db.ExecContext(ctx, `INSERT INTO interests (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`, i.id, i.name)
+		h.db.ExecContext(ctx, `INSERT INTO interests (id, name) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`, i.id, i.name)
 	}
 
 	assignments := []struct {
 		userID     string
 		interestID int
 	}{
-		{seedUserIDs[0], 201}, {seedUserIDs[0], 202}, {seedUserIDs[0], 205},
-		{seedUserIDs[1], 203}, {seedUserIDs[1], 204}, {seedUserIDs[1], 210},
-		{seedUserIDs[2], 201}, {seedUserIDs[2], 202}, {seedUserIDs[2], 206},
-		{seedUserIDs[3], 209}, {seedUserIDs[3], 203},
-		{seedUserIDs[4], 203}, {seedUserIDs[4], 204}, {seedUserIDs[4], 210},
-		{seedUserIDs[5], 208}, {seedUserIDs[5], 209},
-		{seedUserIDs[6], 205}, {seedUserIDs[6], 210},
-		{seedUserIDs[7], 201}, {seedUserIDs[7], 207},
+		{seedUserIDs[0], 201}, {seedUserIDs[0], 203}, {seedUserIDs[0], 204},
+		{seedUserIDs[1], 201}, {seedUserIDs[1], 202}, {seedUserIDs[1], 211},
+		{seedUserIDs[2], 204}, {seedUserIDs[2], 205}, {seedUserIDs[2], 207},
+		{seedUserIDs[3], 202}, {seedUserIDs[3], 212}, {seedUserIDs[3], 210},
+		{seedUserIDs[4], 201}, {seedUserIDs[4], 203}, {seedUserIDs[4], 208},
+		{seedUserIDs[5], 202}, {seedUserIDs[5], 209}, {seedUserIDs[5], 211},
+		{seedUserIDs[6], 201}, {seedUserIDs[6], 205}, {seedUserIDs[6], 206},
+		{seedUserIDs[7], 206}, {seedUserIDs[7], 208}, {seedUserIDs[7], 210},
 	}
 	for _, a := range assignments {
 		h.db.ExecContext(ctx, `INSERT INTO user_interests (user_id, interest_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, a.userID, a.interestID)
@@ -229,6 +231,12 @@ func (h *SeedHandler) seedEnrollments(ctx context.Context) {
 		{seedUserIDs[5], seedEventIDs[4], "going"},
 		{seedUserIDs[6], seedEventIDs[0], "going"},
 		{seedUserIDs[7], seedEventIDs[2], "interested"},
+		// Adding more enrollments so events have more users
+		{seedUserIDs[2], seedEventIDs[1], "going"},
+		{seedUserIDs[3], seedEventIDs[1], "going"},
+		{seedUserIDs[5], seedEventIDs[1], "going"},
+		{seedUserIDs[6], seedEventIDs[1], "interested"},
+		{seedUserIDs[7], seedEventIDs[1], "going"},
 	}
 	for _, e := range enrollments {
 		h.db.ExecContext(context.Background(), `
@@ -236,4 +244,31 @@ func (h *SeedHandler) seedEnrollments(ctx context.Context) {
 			ON CONFLICT DO NOTHING
 		`, e.userID, e.eventID, e.status)
 	}
+}
+
+func (h *SeedHandler) seedGroups(ctx context.Context) {
+	type seedGroup struct {
+		id, eventID, name, description, createdBy, meetingPoint, departureDate string
+	}
+
+	groups := []seedGroup{
+		{"g0000000-5eed-0000-0000-000000000001", seedEventIDs[1], "Delhi Hackers Travel", "Traveling from New Delhi to BITS Pilani together!", seedUserIDs[1], "NDLS Station", "2026-05-19"},
+		{"g0000000-5eed-0000-0000-000000000002", seedEventIDs[1], "Mumbai to Pilani Squad", "Taking the flight from Mumbai to Jaipur then a cab.", seedUserIDs[0], "Mumbai Airport", "2026-05-20"},
+		{"g0000000-5eed-0000-0000-000000000003", seedEventIDs[0], "TechFest Train Group", "Catching the express train to Mumbai.", seedUserIDs[4], "Chennai Central", "2026-01-10"},
+	}
+
+	for _, g := range groups {
+		h.db.ExecContext(ctx, `
+			INSERT INTO groups (id, event_id, name, description, created_by, max_members, departure_date, meeting_point, requires_approval)
+			VALUES ($1, $2, $3, $4, $5, 4, $6, $7, false)
+			ON CONFLICT (id) DO NOTHING
+		`, g.id, g.eventID, g.name, g.description, g.createdBy, g.departureDate, g.meetingPoint)
+		
+		// Auto-join creator
+		h.db.ExecContext(ctx, `INSERT INTO group_members (group_id, user_id, status) VALUES ($1, $2, 'accepted') ON CONFLICT DO NOTHING`, g.id, g.createdBy)
+	}
+	
+	// Add some members to groups
+	h.db.ExecContext(ctx, `INSERT INTO group_members (group_id, user_id, status) VALUES ('g0000000-5eed-0000-0000-000000000001', $1, 'accepted') ON CONFLICT DO NOTHING`, seedUserIDs[3])
+	h.db.ExecContext(ctx, `INSERT INTO group_members (group_id, user_id, status) VALUES ('g0000000-5eed-0000-0000-000000000002', $1, 'accepted') ON CONFLICT DO NOTHING`, seedUserIDs[2])
 }
