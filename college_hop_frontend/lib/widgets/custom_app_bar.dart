@@ -34,11 +34,12 @@ class CustomAppBar extends StatelessWidget {
     final String? photoUrl = profileData != null
         ? profileData['profile_photo_url'] as String?
         : null;
-    final initial = (profileData != null &&
-            profileData['name'] != null &&
-            (profileData['name'] as String).isNotEmpty)
-        ? (profileData['name'] as String)[0].toUpperCase()
-        : 'U';
+    final fullName = (profileData?['full_name'] as String?) ?? 'User';
+    final initials = fullName.trim().split(' ')
+        .where((w) => w.isNotEmpty)
+        .take(2)
+        .map((w) => w[0].toUpperCase())
+        .join();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -53,7 +54,7 @@ class CustomAppBar extends StatelessWidget {
                 : null,
             child: (photoUrl == null || photoUrl.isEmpty)
                 ? Text(
-                    initial,
+                    initials,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,

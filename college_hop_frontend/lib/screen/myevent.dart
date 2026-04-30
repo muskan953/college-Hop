@@ -39,16 +39,16 @@ class _MyEventState extends State<MyEvent> {
     final active = context.watch<EventProvider>().activeEvent;
     if (active != null && active.id != _currentEventId) {
       _currentEventId = active.id;
-      _fetchDashboardData(active.id);
+      _fetchDashboardData(active.id, ignoreCooldown: true);
     }
   }
 
-  Future<void> _fetchDashboardData(String eventId) async {
+  Future<void> _fetchDashboardData(String eventId, {bool ignoreCooldown = false}) async {
     if (_loading) return; // Prevent concurrent fetches
 
     // 30-second cooldown to prevent spamming
     final now = DateTime.now();
-    if (_lastRefresh != null && now.difference(_lastRefresh!).inSeconds < 30) {
+    if (!ignoreCooldown && _lastRefresh != null && now.difference(_lastRefresh!).inSeconds < 30) {
       final remaining = 30 - now.difference(_lastRefresh!).inSeconds;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

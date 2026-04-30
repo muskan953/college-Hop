@@ -69,26 +69,10 @@ class _Connection {
   const _Connection(this.id, this.name, this.fallbackColor, this.isOnline);
 }
 
-// Full-featured mock data for fallback when backend is unavailable
-const _mockThreads = <_ChatThread>[
-  _ChatThread(id: '1', name: 'Sarah Chen', lastMessage: 'Sounds good! See you at the airport 🛫', time: '2m ago', avatarColor: Color(0xFF5C6BC0), avatarLabel: 'S', isVerified: true, type: _ChatType.direct),
-  _ChatThread(id: '2', name: 'Michael Kim', lastMessage: 'Did you book the hotel yet?', time: '15m ago', unreadCount: 3, avatarColor: Color(0xFFEC407A), avatarLabel: 'M', isVerified: true, type: _ChatType.direct),
-  _ChatThread(id: '3', name: 'Hackathon @ IIT Deli', lastMessage: 'Alex: Can we split an Uber from the airport?', time: '1h ago', unreadCount: 5, avatarColor: Color(0xFF26A69A), avatarLabel: 'H', type: _ChatType.group, eventTag: 'IIT Delhi'),
-  _ChatThread(id: '4', name: 'Emma Wilson', lastMessage: 'Great connecting with you at the event!', time: '3h ago', avatarColor: Color(0xFFFF7043), avatarLabel: 'E', isPinged: true, type: _ChatType.direct),
-  _ChatThread(id: '5', name: 'AWS Summit Trave...', lastMessage: 'Nina: Train leaves at 8 AM sharp', time: '5h ago', avatarColor: Color(0xFF42A5F5), avatarLabel: 'A', type: _ChatType.group, eventTag: 'AWS Summit'),
-  _ChatThread(id: '6', name: 'Jessica Lee', lastMessage: 'Looking forward to the hackathon!', time: 'Yesterday', avatarColor: Color(0xFFAB47BC), avatarLabel: 'J', isVerified: true, type: _ChatType.direct),
-  _ChatThread(id: '7', name: 'TechFest Travel Group', lastMessage: 'You: See everyone there 🎉', time: 'Yesterday', avatarColor: Color(0xFF66BB6A), avatarLabel: 'T', type: _ChatType.group, eventTag: 'NIT Trichy'),
-  _ChatThread(id: '8', name: 'Ravi Sharma', lastMessage: 'Can you share your notes from the talk?', time: '2d ago', avatarColor: Color(0xFFFFCA28), avatarLabel: 'R', type: _ChatType.direct),
-  _ChatThread(id: '9', name: 'Unknown User', lastMessage: 'Hey, I saw your profile and would love to connect!', time: '1h ago', avatarColor: Color(0xFF607D8B), avatarLabel: 'U', type: _ChatType.request),
-];
+// Removed mock data to prevent misleading placeholder messages
+const _mockThreads = <_ChatThread>[];
 
-const _mockConnections = <_Connection>[
-  _Connection('1', 'Sarah', Color(0xFF5C6BC0), true),
-  _Connection('2', 'Alex', Color(0xFF26A69A), false),
-  _Connection('3', 'Emma', Color(0xFFFF7043), true),
-  _Connection('4', 'Naman', Color(0xFFAB47BC), true),
-  _Connection('5', 'Michael', Color(0xFFEC407A), false),
-];
+const _mockConnections = <_Connection>[];
 
 Color getAvatarColorForId(String id) {
   final colors = [

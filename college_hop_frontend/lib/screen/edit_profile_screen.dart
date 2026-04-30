@@ -66,6 +66,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         );
         if (url != null) {
           setState(() => _uploadedPhotoUrl = url);
+        } else {
+          setState(() => profileImageBytes = null); // Revert UI
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Failed to upload photo. It might be too large (Max 5MB).')),
+            );
+          }
         }
       }
     }
