@@ -20,6 +20,12 @@ var seedEventIDs = []string{
 	"e0000000-5eed-0000-0000-000000000005",
 }
 
+var seedGroupIDs = []string{
+	"g0000000-5eed-0000-0000-000000000001",
+	"g0000000-5eed-0000-0000-000000000002",
+	"g0000000-5eed-0000-0000-000000000003",
+}
+
 var seedUserIDs = []string{
 	"d0000000-5eed-0000-0000-000000000001",
 	"d0000000-5eed-0000-0000-000000000002",
@@ -87,12 +93,15 @@ func (h *SeedHandler) ClearDummyData(w http.ResponseWriter, r *http.Request) {
 	// Build quoted ID lists for SQL IN clauses
 	eventIDList := uuidList(seedEventIDs)
 	userIDList := uuidList(seedUserIDs)
+	groupIDList := uuidList(seedGroupIDs)
 
 	// Delete in reverse dependency order
+	h.db.ExecContext(ctx, `DELETE FROM group_members WHERE group_id IN (`+groupIDList+`)`)
+	h.db.ExecContext(ctx, `DELETE FROM group_members WHERE user_id IN (`+userIDList+`)`)
+	h.db.ExecContext(ctx, `DELETE FROM travel_groups WHERE id IN (`+groupIDList+`)`)
 	h.db.ExecContext(ctx, `DELETE FROM user_events WHERE user_id IN (`+userIDList+`)`)
 	h.db.ExecContext(ctx, `DELETE FROM user_events WHERE event_id IN (`+eventIDList+`)`)
 	h.db.ExecContext(ctx, `DELETE FROM user_interests WHERE user_id IN (`+userIDList+`)`)
-	h.db.ExecContext(ctx, `DELETE FROM group_members WHERE user_id IN (`+userIDList+`)`)
 	h.db.ExecContext(ctx, `DELETE FROM profiles WHERE user_id IN (`+userIDList+`)`)
 	h.db.ExecContext(ctx, `DELETE FROM users WHERE id IN (`+userIDList+`)`)
 	h.db.ExecContext(ctx, `DELETE FROM events WHERE id IN (`+eventIDList+`)`)
@@ -187,34 +196,46 @@ func (h *SeedHandler) seedUsers(ctx context.Context) (int, error) {
 }
 
 func (h *SeedHandler) seedInterests(ctx context.Context) {
-	interests := []struct {
-		id   int
-		name string
-	}{
-		{201, "Programming"}, {202, "Design"}, {203, "Startups"},
-		{204, "Gaming"}, {205, "Music"}, {206, "Reading"},
-		{207, "Movies"}, {208, "Travel"}, {209, "Sports"},
-		{210, "Photography"}, {211, "Food"}, {212, "Art"},
+	// Fetch all existing interests from the DB by name so we use the correct IDs
+	rows, err := h.db.QueryContext(ctx, `SELECT id, name FROM interests`)
+	if err != nil {
+		return
 	}
-	for _, i := range interests {
-		h.db.ExecContext(ctx, `INSERT INTO interests (id, name) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`, i.id, i.name)
+	defer rows.Close()
+
+	interestMap := map[string]int{}
+	for rows.Next() {
+		var id int
+		var name string
+		if rows.Scan(&id, &name) == nil {
+			interestMap[name] = id
+		}
 	}
 
-	assignments := []struct {
-		userID     string
-		interestID int
-	}{
-		{seedUserIDs[0], 201}, {seedUserIDs[0], 203}, {seedUserIDs[0], 204},
-		{seedUserIDs[1], 201}, {seedUserIDs[1], 202}, {seedUserIDs[1], 211},
-		{seedUserIDs[2], 204}, {seedUserIDs[2], 205}, {seedUserIDs[2], 207},
-		{seedUserIDs[3], 202}, {seedUserIDs[3], 212}, {seedUserIDs[3], 210},
-		{seedUserIDs[4], 201}, {seedUserIDs[4], 203}, {seedUserIDs[4], 208},
-		{seedUserIDs[5], 202}, {seedUserIDs[5], 209}, {seedUserIDs[5], 211},
-		{seedUserIDs[6], 201}, {seedUserIDs[6], 205}, {seedUserIDs[6], 206},
-		{seedUserIDs[7], 206}, {seedUserIDs[7], 208}, {seedUserIDs[7], 210},
+	// Assign interests that OVERLAP with Shivam's so matching shows these users
+	// Shivam has: Programming, Design, Startups, Gaming, Music, Reading, Movies, Coding
+	userInterests := map[string][]string{
+		seedUserIDs[0]: {"Programming", "Startups", "Gaming"},  // Arjun
+		seedUserIDs[1]: {"Programming", "Design", "Music"},     // Priya
+		seedUserIDs[2]: {"Gaming", "Movies", "Reading"},        // Rahul
+		seedUserIDs[3]: {"Design", "Startups", "Reading"},      // Sneha
+		seedUserIDs[4]: {"Programming", "Startups", "Coding"},  // Vikram
+		seedUserIDs[5]: {"Design", "Music", "Movies"},          // Ananya
+		seedUserIDs[6]: {"Programming", "Gaming", "Reading"},   // Karthik
+		seedUserIDs[7]: {"Movies", "Music", "Design"},          // Divya
 	}
-	for _, a := range assignments {
-		h.db.ExecContext(ctx, `INSERT INTO user_interests (user_id, interest_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, a.userID, a.interestID)
+
+	for userID, interests := range userInterests {
+		for _, interestName := range interests {
+			id, ok := interestMap[interestName]
+			if !ok {
+				continue // skip if interest doesn't exist in DB
+			}
+			h.db.ExecContext(ctx, `
+				INSERT INTO user_interests (user_id, interest_id) VALUES ($1, $2)
+				ON CONFLICT DO NOTHING
+			`, userID, id)
+		}
 	}
 }
 
@@ -252,23 +273,24 @@ func (h *SeedHandler) seedGroups(ctx context.Context) {
 	}
 
 	groups := []seedGroup{
-		{"g0000000-5eed-0000-0000-000000000001", seedEventIDs[1], "Delhi Hackers Travel", "Traveling from New Delhi to BITS Pilani together!", seedUserIDs[1], "NDLS Station", "2026-05-19"},
-		{"g0000000-5eed-0000-0000-000000000002", seedEventIDs[1], "Mumbai to Pilani Squad", "Taking the flight from Mumbai to Jaipur then a cab.", seedUserIDs[0], "Mumbai Airport", "2026-05-20"},
-		{"g0000000-5eed-0000-0000-000000000003", seedEventIDs[0], "TechFest Train Group", "Catching the express train to Mumbai.", seedUserIDs[4], "Chennai Central", "2026-01-10"},
+		{seedGroupIDs[0], seedEventIDs[1], "Delhi Hackers Travel", "Traveling from New Delhi to BITS Pilani together!", seedUserIDs[1], "NDLS Station", "2026-05-19"},
+		{seedGroupIDs[1], seedEventIDs[1], "Mumbai to Pilani Squad", "Taking the flight from Mumbai to Jaipur then a cab.", seedUserIDs[0], "Mumbai Airport", "2026-05-20"},
+		{seedGroupIDs[2], seedEventIDs[0], "TechFest Train Group", "Catching the express train to Mumbai.", seedUserIDs[4], "Chennai Central", "2026-06-10"},
 	}
 
 	for _, g := range groups {
 		h.db.ExecContext(ctx, `
-			INSERT INTO groups (id, event_id, name, description, created_by, max_members, departure_date, meeting_point, requires_approval)
+			INSERT INTO travel_groups (id, event_id, name, description, created_by, max_members, departure_date, meeting_point, requires_approval)
 			VALUES ($1, $2, $3, $4, $5, 4, $6, $7, false)
 			ON CONFLICT (id) DO NOTHING
 		`, g.id, g.eventID, g.name, g.description, g.createdBy, g.departureDate, g.meetingPoint)
-		
-		// Auto-join creator
-		h.db.ExecContext(ctx, `INSERT INTO group_members (group_id, user_id, status) VALUES ($1, $2, 'accepted') ON CONFLICT DO NOTHING`, g.id, g.createdBy)
+
+		// Auto-join creator (no status column — group_members only has group_id, user_id, joined_at)
+		h.db.ExecContext(ctx, `INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, g.id, g.createdBy)
 	}
-	
-	// Add some members to groups
-	h.db.ExecContext(ctx, `INSERT INTO group_members (group_id, user_id, status) VALUES ('g0000000-5eed-0000-0000-000000000001', $1, 'accepted') ON CONFLICT DO NOTHING`, seedUserIDs[3])
-	h.db.ExecContext(ctx, `INSERT INTO group_members (group_id, user_id, status) VALUES ('g0000000-5eed-0000-0000-000000000002', $1, 'accepted') ON CONFLICT DO NOTHING`, seedUserIDs[2])
+
+	// Add extra members to groups
+	h.db.ExecContext(ctx, `INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, seedGroupIDs[0], seedUserIDs[3])
+	h.db.ExecContext(ctx, `INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, seedGroupIDs[1], seedUserIDs[2])
+	h.db.ExecContext(ctx, `INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, seedGroupIDs[2], seedUserIDs[6])
 }
