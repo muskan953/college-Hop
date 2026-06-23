@@ -115,8 +115,6 @@ cd college_hop_frontend && flutter run
 
 ## 🔑 Environment Variables (Backend)
 
-> ⚠️ Never commit `.env` — it is gitignored.
-
 | Variable | Required | Description |
 |---|---|---|
 | `JWT_SECRET` | ✅ | Secret key for signing access tokens |
@@ -166,7 +164,3 @@ docker compose up --build -d
 See [`backend/README.md`](./backend/README.md) for the full production checklist.
 
 ---
-
-## 📄 License
-
-Private repository — `muskan953/college-Hop`.

@@ -113,8 +113,6 @@ The API base URL is currently set as a constant in `lib/services/api_service.dar
 | Local (Physical Android via ADB) | `http://localhost:8080` with `adb reverse tcp:8080 tcp:8080` |
 | Production | Set to your deployed backend URL |
 
-> ⚠️ **Known issue:** The URL is hardcoded — no `--dart-define` or `.env` file is used yet. Change the constant before building for production.
-
 ### Firebase
 
 The app uses Firebase for push notifications. Ensure:
@@ -239,16 +237,3 @@ flutter build ios --release
 # Web
 flutter build web --release
 ```
-
-> Before building: update the API base URL constant in `lib/services/api_service.dart`.
-
----
-
-## Known Issues
-
-| Issue | Severity |
-|---|---|
-| API base URL hardcoded in `api_service.dart` | 🟡 Medium |
-| `mainn_screen.dart` filename has double 'n' typo | 🟢 Low (cosmetic) |
-| Minimal widget test coverage | 🟡 Medium |
-| WS `close 1005` events on Flutter Web localhost trigger reconnect backoff | 🟢 Low (handled by 10 s min backoff) |

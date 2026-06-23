@@ -112,8 +112,6 @@ ALLOWED_ORIGIN=*
 | `UPLOAD_BASE_URL` | — | Public URL prefix for file links |
 | `ALLOWED_ORIGIN` | — | CORS origin (default: `http://localhost:3000`) |
 
-> ⚠️ `.env` is gitignored. Never commit it.
-
 ---
 
 ## Database & Migrations
@@ -279,12 +277,3 @@ docker logs collegehop-postgres -f
 | OTP delivery | Integrate Resend/SendGrid/SES (currently console-logged) |
 
 ---
-
-## Known Issues & Tech Debt
-
-| Issue | Severity |
-|---|---|
-| OTP not emailed — logged to console only | 🔴 High |
-| Local file storage not durable across container restarts without volume mount | 🟡 Medium |
-| Manual URL routing via `strings.Split` — consider `chi` router for v2 | 🟢 Low |
-| No load testing on WebSocket Hub | 🟡 Medium |
